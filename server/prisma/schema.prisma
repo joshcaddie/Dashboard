@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id            Int       @id @default(autoincrement())
+  name          String
+  contact       String    @default("—")
+  type          String    @default("Client")
+  region        String    @default("")
+  roll          String    @default("—")
+  website       String    @default("")
+  ws            String    @default("schoolwebsites")
+  businessType  String    @default("Primary School")
+  notes         String    @default("")
+  lastContacted String? // display string, e.g. "Jul 6, 2026"
+  contacts      Contact[]
+}
+
+model Contact {
+  id       Int    @id @default(autoincrement())
+  clientId Int
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name     String
+  title    String @default("Contact")
+  email    String @default("—")
+  phone    String @default("—")
+}
+
+model Job {
+  id              Int     @id @default(autoincrement())
+  client          String // client name, mirrors prototype
+  salesDate       String
+  jobType         String
+  status          String
+  dev             Int     @default(0)
+  host            Int     @default(0) // annual hosting
+  hostingMonth    String  @default("—")
+  region          String  @default("")
+  thisMonth       Boolean @default(false)
+  ws              String  @default("schoolwebsites")
+  salesChannel    String  @default("")
+  referralPartner String  @default("")
+}
+
+model Sale {
+  id        Int        @id @default(autoincrement())
+  name      String
+  town      String     @default("")
+  category  String     @default("Primary")
+  region    String     @default("")
+  roll      Int        @default(0)
+  principal String     @default("—")
+  email     String     @default("")
+  stage     String     @default("New")
+  ws        String     @default("schoolwebsites")
+  notes     SaleNote[]
+  tasks     SaleTask[]
+}
+
+model SaleNote {
+  id        Int      @id @default(autoincrement())
+  saleId    Int
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  text      String
+  ts        String
+  createdAt DateTime @default(now())
+}
+
+model SaleTask {
+  id     Int     @id @default(autoincrement())
+  saleId Int
+  sale   Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  text   String
+  due    String  @default("")
+  done   Boolean @default(false)
+}
+
+model EmailTemplate {
+  id      Int    @id @default(autoincrement())
+  name    String
+  subject String @default("")
+  body    String @default("")
+}
+
+model SalesChannel {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  order Int    @default(0)
+}
+
+model ReferralPartner {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  order Int    @default(0)
+}
+
+model Target {
+  key   String @id
+  value Float  @default(0)
+}
+
+model SentEmail {
+  id      Int      @id @default(autoincrement())
+  kind    String // 'client' | 'sale'
+  refId   Int
+  subject String
+  body    String
+  day     String
+  time    String
+  sentAt  DateTime @default(now())
+}

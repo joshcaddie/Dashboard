@@ -1,0 +1,21 @@
+# Render Blueprint — deploys Schoolhub CRM as a single web service.
+# In Render: New → Blueprint → connect this repo. Then set DATABASE_URL
+# (your Neon Postgres connection string) and optionally ANTHROPIC_API_KEY.
+services:
+  - type: web
+    name: schoolhub-crm
+    runtime: node
+    plan: free
+    buildCommand: npm run render-build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Your Neon Postgres connection string (must include ?sslmode=require).
+      - key: DATABASE_URL
+        sync: false
+      # Optional — enables real AI email drafting via Claude.
+      - key: ANTHROPIC_API_KEY
+        sync: false

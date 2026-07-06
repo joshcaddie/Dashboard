@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.log
+
+# Local env (contains your DATABASE_URL / API keys). Committed template: server/.env.example
+server/.env
+.env.local
+
+# Legacy local SQLite db (the app now uses Postgres)
+*.db
+*.db-journal
+
+.DS_Store

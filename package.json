@@ -1,0 +1,16 @@
+{
+  "name": "schoolhub-crm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Schoolhub CRM — dual-agency CRM (React + Vite frontend, Express + Prisma + SQLite backend)",
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix client install && npm --prefix server run setup",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "node scripts/dev.mjs",
+    "build": "npm --prefix client run build",
+    "db:reset": "npm --prefix server run db:reset",
+    "render-build": "npm --prefix server install && npm --prefix client install && npm --prefix client run build && npm --prefix server run build",
+    "start": "npm --prefix server start"
+  }
+}
