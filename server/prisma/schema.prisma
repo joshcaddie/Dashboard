@@ -118,6 +118,14 @@ model User {
   tokenExpiry  DateTime?
 }
 
+model GmailAccount {
+  ws           String   @id // 'caddie' | 'schoolwebsites'
+  email        String   @default("") // the connected mailbox address
+  refreshToken String // AES-256-GCM encrypted, base64
+  connectedAt  DateTime @default(now())
+  connectedBy  String   @default("") // admin email who connected it
+}
+
 model SentEmail {
   id      Int      @id @default(autoincrement())
   kind    String // 'client' | 'sale'

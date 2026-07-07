@@ -14,6 +14,22 @@ interface ComposedSrc {
   time: string;
 }
 
+interface GmailMsg {
+  id: string; threadId: string; from: string; to: string;
+  subject: string; snippet: string; dateMs: number; isOut: boolean; unread: boolean;
+}
+interface GmailResp { connected: boolean; configured?: boolean; error?: string; addresses?: string[]; messages: GmailMsg[]; }
+
+function parseAddr(v: string): { name: string; email: string } {
+  const m = (v || '').match(/^\s*"?([^"<]*)"?\s*<([^>]+)>/);
+  if (m) return { name: m[1].trim(), email: m[2].trim() };
+  return { name: '', email: (v || '').trim() };
+}
+function fmtMs(ms: number): string {
+  const d = new Date(ms);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
 interface Item {
   id: string | number;
   isOut: boolean;
@@ -33,7 +49,7 @@ interface Item {
 
 export function ClientEmailsView() {
   const store = useStore();
-  const { theme, wsId } = useWs();
+  const { theme } = useWs();
   const modals = useModals();
   const accent = theme.accent, soft = theme.soft;
 
@@ -52,19 +68,21 @@ export function ClientEmailsView() {
 
   const arcId = arc ? arc.id : null;
   const [composedSrc, setComposedSrc] = useState<ComposedSrc[]>([]);
+  const [gmail, setGmail] = useState<GmailResp | null>(null);
+  const [gmailLoading, setGmailLoading] = useState(false);
 
   useEffect(() => {
-    if (arcId == null) {
-      setComposedSrc([]);
-      return;
-    }
+    if (arcId == null) { setComposedSrc([]); setGmail(null); return; }
     let alive = true;
+    setGmailLoading(true);
     api.get('/sent-emails?kind=' + kind + '&refId=' + arcId).then((rows) => {
       if (alive) setComposedSrc(Array.isArray(rows) ? rows : []);
-    });
-    return () => {
-      alive = false;
-    };
+    }).catch(() => {});
+    api.get(`/gmail/threads?kind=${kind}&refId=${arcId}`)
+      .then((r) => { if (alive) setGmail(r); })
+      .catch(() => { if (alive) setGmail({ connected: false, messages: [] }); })
+      .finally(() => { if (alive) setGmailLoading(false); });
+    return () => { alive = false; };
   }, [kind, arcId]);
 
   if (!arc) return null;
@@ -72,21 +90,9 @@ export function ClientEmailsView() {
   const first = arc.contact && arc.contact !== '—' ? arc.contact.split(' ')[0] : 'Office';
   const dom = (arc.website || '').replace(/^www\./, '') || 'school.nz';
   const themEmail = (first.toLowerCase().replace(/[^a-z]/g, '') || 'office') + '@' + dom;
-  const brand = wsId === 'caddie' ? 'Caddie Digital' : 'School Websites NZ';
   const av = avatarColors(arc.name);
   const who = arc.contact && arc.contact !== '—' ? arc.contact : arc.name;
-  const seed = (arc.name || '').length + (arc.id || 0);
-
-  const thread = [
-    { dir: 'out', subj: 'Welcome to ' + brand + ' — next steps', prev: 'Kia ora ' + first + ', great to have you on board. Here is what happens next as we get your project underway…', day: 'Mar 3', time: '9:12 AM' },
-    { dir: 'in', subj: 'Re: Welcome to ' + brand + ' — next steps', prev: 'Thanks Rachel — this all looks great. I have looped in our office manager as well…', day: 'Mar 3', time: '2:48 PM' },
-    { dir: 'out', subj: 'Design proof ready for your review', prev: 'Hi ' + first + ', the first design proof for your new site is ready. Preview it and send through any changes…', day: 'Mar 18', time: '11:30 AM' },
-    { dir: 'in', subj: 'Re: Design proof ready for your review', prev: 'Love it! Just a couple of small tweaks to the homepage banner and the colours on the news section…', day: 'Mar 19', time: '8:05 AM' },
-    { dir: 'in', subj: 'Question about the newsletter module', prev: 'Hi Rachel, a few of our teachers are asking whether we can schedule newsletters in advance…', day: 'Apr 2', time: '4:22 PM', unread: true },
-    { dir: 'out', subj: 'Re: Question about the newsletter module', prev: 'Great question — yes, scheduling is built in. I have attached a short guide for your team…', day: 'Apr 2', time: '5:01 PM' },
-    { dir: 'out', subj: 'Invoice INV-' + (2000 + seed) + ' — annual hosting', prev: 'Please find attached your annual hosting invoice. Payment is due within 30 days. Ngā mihi…', day: 'Apr 15', time: '10:00 AM' },
-    { dir: 'in', subj: 'Re: Invoice INV-' + (2000 + seed) + ' — annual hosting', prev: 'All paid, thanks. Could you also confirm our domain renewal date while we are at it?', day: 'Apr 16', time: '9:40 AM', unread: true },
-  ];
+  const gmailConnected = !!gmail?.connected;
 
   const composed: Item[] = composedSrc.map((e, i) => ({
     id: 'c' + i,
@@ -105,25 +111,29 @@ export function ClientEmailsView() {
     subjWeight: 600,
   }));
 
-  const items: Item[] = [
-    ...composed,
-    ...thread.map((t, i) => ({
-      id: i,
-      isOut: t.dir === 'out',
-      who: t.dir === 'out' ? 'To ' + who : who,
-      peer: themEmail,
-      dirLabel: t.dir === 'out' ? 'Sent' : 'Received',
-      dirRotate: t.dir === 'out' ? 'none' : 'rotate(180deg)',
-      dirBg: t.dir === 'out' ? soft : '#EAF1F8',
-      dirFg: t.dir === 'out' ? accent : '#2B6CB0',
-      subj: t.subj,
-      prev: t.prev,
-      dateStr: t.day + ' · ' + t.time,
-      unread: !!t.unread,
-      rowBg: t.unread ? '#F6FAF9' : '#fff',
-      subjWeight: t.unread ? 700 : 600,
-    })),
-  ];
+  const gmailItems: Item[] = (gmail?.messages || []).map((m) => {
+    const other = m.isOut ? parseAddr(m.to) : parseAddr(m.from);
+    return {
+      id: m.id,
+      isOut: m.isOut,
+      who: m.isOut ? 'To ' + (other.name || other.email) : (other.name || other.email),
+      peer: other.email,
+      dirLabel: m.isOut ? 'Sent' : 'Received',
+      dirRotate: m.isOut ? 'none' : 'rotate(180deg)',
+      dirBg: m.isOut ? soft : '#EAF1F8',
+      dirFg: m.isOut ? accent : '#2B6CB0',
+      subj: m.subject || '(no subject)',
+      prev: (m.snippet || '').trim() || '(no preview)',
+      dateStr: fmtMs(m.dateMs),
+      unread: m.unread,
+      rowBg: m.unread ? '#F6FAF9' : '#fff',
+      subjWeight: m.unread ? 700 : 600,
+    };
+  });
+
+  // Gmail thread (already includes our sent mail) when connected; otherwise the
+  // locally-recorded send archive.
+  const items: Item[] = gmailConnected ? gmailItems : composed;
 
   const f = store.clientEmailFilter;
   const filtered = items.filter((it) => f === 'All' || (f === 'Sent' && it.isOut) || (f === 'Received' && !it.isOut));
@@ -159,14 +169,32 @@ export function ClientEmailsView() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#FFF8EC', border: '1px solid #F5E4C3', borderRadius: 8, padding: '11px 14px' }}>
-        <Icon name="plug-zap" size={17} style={{ color: '#B5791B', flexShrink: 0 }} />
-        <div style={{ fontSize: 12.5, color: '#7A5B1E', lineHeight: 1.45 }}>Showing <strong>sample</strong> conversation history. Connect your Gmail account to sync real sent &amp; received email for this client.</div>
-        <div style={{ flex: 1 }} />
-        <button style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', border: '1px solid #E7D2A4', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: '#8A6417', cursor: 'pointer' }}>
-          <Icon name="mail" size={14} />Connect Gmail
-        </button>
-      </div>
+      {gmailConnected ? (
+        gmail?.error ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#FCEEEE', border: '1px solid #F1D3D5', borderRadius: 8, padding: '11px 14px' }}>
+            <Icon name="triangle-alert" size={17} style={{ color: '#C22F35', flexShrink: 0 }} />
+            <div style={{ fontSize: 12.5, color: '#8A2C31', lineHeight: 1.45 }}>Couldn’t load Gmail history: {gmail.error}</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#EFF7F1', border: '1px solid #CDE6D6', borderRadius: 8, padding: '10px 14px' }}>
+            <Icon name="mail-check" size={16} style={{ color: '#1B7A45', flexShrink: 0 }} />
+            <div style={{ fontSize: 12.5, color: '#2E6B45', lineHeight: 1.45 }}>Live Gmail history{gmail?.addresses?.length ? ` for ${gmail.addresses.join(', ')}` : ''}.</div>
+          </div>
+        )
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#FFF8EC', border: '1px solid #F5E4C3', borderRadius: 8, padding: '11px 14px' }}>
+          <Icon name="plug-zap" size={17} style={{ color: '#B5791B', flexShrink: 0 }} />
+          <div style={{ fontSize: 12.5, color: '#7A5B1E', lineHeight: 1.45 }}>
+            {gmailLoading ? 'Checking Gmail…' : gmail?.configured === false
+              ? 'Gmail isn’t set up yet. Add Google credentials, then connect it in Settings.'
+              : 'Gmail isn’t connected for this workspace — showing locally sent email only. Connect it to sync full history.'}
+          </div>
+          <div style={{ flex: 1 }} />
+          <button onClick={() => store.goto('settings')} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', border: '1px solid #E7D2A4', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: '#8A6417', cursor: 'pointer' }}>
+            <Icon name="mail" size={14} />Connect Gmail
+          </button>
+        </div>
+      )}
 
       <div style={{ background: '#fff', border: '1px solid #E6ECF1', borderRadius: 8, boxShadow: '0 1px 2px rgba(16,32,46,.04)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '12px 16px', borderBottom: '1px solid #EEF2F5' }}>

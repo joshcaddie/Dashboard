@@ -31,3 +31,18 @@ services:
       # Optional — fixed secret for login sessions (else derived from DATABASE_URL).
       - key: JWT_SECRET
         sync: false
+      # Public base URL — used for invite/reset links and the Gmail OAuth redirect.
+      - key: APP_URL
+        sync: false
+      # Gmail OAuth (see GMAIL_SETUP.md). One app per Workspace org, or a shared pair.
+      - key: GOOGLE_CLIENT_ID_SCHOOLWEB
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET_SCHOOLWEB
+        sync: false
+      - key: GOOGLE_CLIENT_ID_CADDIE
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET_CADDIE
+        sync: false
+      # Optional — fixed key for encrypting stored Gmail refresh tokens.
+      - key: GMAIL_TOKEN_KEY
+        sync: false

@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { useWs } from '../derive';
 import { Icon } from '../components/Icon';
 import { TeamSection } from './TeamSection';
+import { GmailSection } from './GmailSection';
 import { ImportSection } from './ImportSection';
 
 export function SettingsView() {
@@ -79,6 +80,7 @@ export function SettingsView() {
       </div>
     </div>
     <TeamSection />
+    <GmailSection />
     <ImportSection />
     </>
   );

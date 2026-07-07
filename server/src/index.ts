@@ -15,6 +15,7 @@ import sendEmail from './routes/email.js';
 import auth from './routes/auth.js';
 import users from './routes/users.js';
 import importData from './routes/import.js';
+import gmail from './routes/gmail.js';
 import { attachUser, requireAuth, ensureSuperAdmin } from './auth.js';
 
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/auth', auth);
 // Everything below requires a signed-in user.
 app.use('/api/users', users); // (further gated to admin+ inside the router)
 app.use('/api/import', importData); // (gated to super_admin inside the router)
+app.use('/api/gmail', gmail); // (auth handled per-route: callback is public via signed state)
 app.use('/api/clients', requireAuth, clients);
 app.use('/api/contacts', requireAuth, contacts);
 app.use('/api/jobs', requireAuth, jobs);

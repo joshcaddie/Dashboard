@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
 import { senderFor, sendMail } from '../mailer.js';
+import { isConnected as gmailConnected, sendMessage as gmailSend } from '../gmail.js';
 
 const router = Router();
 
@@ -32,12 +33,17 @@ router.post('/', async (req, res, next) => {
     }
 
     const sender = senderFor(ws);
-    if (!sender.apiKey) {
-      return res.status(503).json({ error: `Email sending isn't configured for ${sender.name}.` });
-    }
 
-    // Send.
-    await sendMail(sender, { to, subject, text: body });
+    // Send via Gmail when the workspace's mailbox is connected (so it lands in
+    // Sent + threads); otherwise fall back to SMTP2GO.
+    if (await gmailConnected(ws)) {
+      await gmailSend(ws, { from: `${sender.name} <${sender.from}>`, to, subject, text: body });
+    } else {
+      if (!sender.apiKey) {
+        return res.status(503).json({ error: `Email sending isn't configured for ${sender.name}. Connect Gmail or add an SMTP2GO key.` });
+      }
+      await sendMail(sender, { to, subject, text: body });
+    }
 
     // Record.
     const d = new Date();
