@@ -73,7 +73,7 @@ interface Store {
   addPartner: (name: string) => Promise<void>;
   deletePartner: (id: number) => Promise<void>;
   setTarget: (key: string, value: number) => Promise<void>;
-  sendEmail: (opts: { kind: 'client' | 'sale'; refId: number; subject: string; body: string }) => Promise<void>;
+  sendEmail: (opts: { kind: 'client' | 'sale'; refId: number; to: string; subject: string; body: string }) => Promise<void>;
 }
 
 const StoreCtx = createContext<Store | null>(null);
@@ -253,19 +253,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // ---- email ----
-  const sendEmail = async (opts: { kind: 'client' | 'sale'; refId: number; subject: string; body: string }) => {
-    const d = new Date();
-    const day = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    await api.post('/sent-emails', { kind: opts.kind, refId: opts.refId, subject: opts.subject || '(no subject)', body: opts.body, day, time });
-    if (opts.kind === 'client') {
-      const today = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      await api.patch('/clients/' + opts.refId, { lastContacted: today });
-      setClients((cs) => cs.map((c) => (c.id === opts.refId ? { ...c, lastContacted: today } : c)));
-    } else {
-      // log a timestamped email note on the sale
-      const note = await api.post(`/sales/${opts.refId}/notes`, { text: '✉ Emailed: ' + (opts.subject || '(no subject)'), ts: nowStamp() });
-      setSales((ss) => ss.map((s) => (s.id === opts.refId ? { ...s, notes: [note, ...s.notes] } : s)));
+  // Actually sends via SMTP2GO server-side, then records into the archive +
+  // updates last-contacted / logs a note. Throws (with a message) if the send fails.
+  const sendEmail = async (opts: { kind: 'client' | 'sale'; refId: number; to: string; subject: string; body: string }) => {
+    const res = await api.post('/send-email', opts);
+    if (opts.kind === 'client' && res?.lastContacted) {
+      setClients((cs) => cs.map((c) => (c.id === opts.refId ? { ...c, lastContacted: res.lastContacted } : c)));
+    } else if (opts.kind === 'sale' && res?.note) {
+      setSales((ss) => ss.map((s) => (s.id === opts.refId ? { ...s, notes: [res.note, ...s.notes] } : s)));
     }
   };
 

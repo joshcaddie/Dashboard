@@ -10,6 +10,7 @@ import sales from './routes/sales.js';
 import tasks from './routes/tasks.js';
 import misc from './routes/misc.js';
 import ai from './routes/ai.js';
+import sendEmail from './routes/email.js';
 
 const app = express();
 app.use(cors());
@@ -23,6 +24,7 @@ app.use('/api/jobs', jobs);
 app.use('/api/sales', sales);
 app.use('/api/tasks', tasks);
 app.use('/api/ai', ai);
+app.use('/api/send-email', sendEmail);
 app.use('/api', misc);
 
 // ---- Serve the built React app (single service) ----

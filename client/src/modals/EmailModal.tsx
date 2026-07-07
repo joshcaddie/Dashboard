@@ -22,6 +22,8 @@ export function EmailModal({ ctx, onClose }: { ctx: EmailContext; onClose: () =>
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   const multi = ctx.recipients.length > 1;
 
@@ -55,8 +57,16 @@ export function EmailModal({ ctx, onClose }: { ctx: EmailContext; onClose: () =>
 
   const send = async () => {
     if (!subject.trim() && !body.trim()) return;
-    await store.sendEmail({ kind: ctx.kind, refId: ctx.refId, subject, body });
-    onClose();
+    if (sending) return;
+    setSending(true);
+    setSendError('');
+    try {
+      await store.sendEmail({ kind: ctx.kind, refId: ctx.refId, to: emailTo, subject, body });
+      onClose();
+    } catch (e: any) {
+      setSendError(e?.message || 'Could not send email.');
+      setSending(false);
+    }
   };
 
   const focus = (e: any) => { e.target.style.borderColor = accent; e.target.style.boxShadow = `0 0 0 3px ${soft}`; };
@@ -70,8 +80,9 @@ export function EmailModal({ ctx, onClose }: { ctx: EmailContext; onClose: () =>
       maxWidth={600}
       footer={
         <>
+          {sendError && <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#C22F35', textAlign: 'left' }}>{sendError}</span>}
           <button onClick={onClose} style={{ padding: '9px 16px', border: '1px solid #DDE4EA', borderRadius: 8, background: '#fff', fontSize: 13.5, fontWeight: 600, color: '#4B5D6C', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={send} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 17px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 2px rgba(15,30,44,.14)' }}><Icon name="send" size={16} />Send email</button>
+          <button onClick={send} disabled={sending} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 17px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.7 : 1, boxShadow: '0 1px 2px rgba(15,30,44,.14)' }}><Icon name="send" size={16} />{sending ? 'Sending…' : 'Send email'}</button>
         </>
       }
     >
