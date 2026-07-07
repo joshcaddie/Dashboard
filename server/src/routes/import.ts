@@ -91,6 +91,12 @@ const JOB_TYPE_FIX: Record<string, string> = {
   'Chat Bot': 'Chat Bot',
   'Year Book': 'Year Book',
   'Alumni': 'Alumni',
+  // Caddie service lines.
+  'Google Ads': 'Google Ads',
+  'IUBenda': 'IUBenda',
+  'Hyper': 'Hyper',
+  'SEO': 'SEO',
+  'CleanTalk': 'CleanTalk',
   'Other job': 'Other job',
 };
 const STATUS_FIX: Record<string, string> = {

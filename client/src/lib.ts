@@ -32,6 +32,11 @@ const TYPE_MAP: Record<string, [string, string]> = {
   'Chat Bot': ['#EAE4FA', '#5C40C0'],
   'Other job': ['#EAEEF1', '#48596A'],
   Alumni: ['#E5F1F0', '#0E7C6E'],
+  'Google Ads': ['#FBE3ED', '#B32C61'],
+  IUBenda: ['#EAE4FA', '#5C40C0'],
+  Hyper: ['#FBEFD3', '#96660F'],
+  SEO: ['#DEF3E7', '#1B7A45'],
+  CleanTalk: ['#E5F1F0', '#0E7C6E'],
 };
 export function typeStyle(t: string): CSSProperties {
   const c = TYPE_MAP[t] || ['#EAEEF1', '#48596A'];
@@ -138,7 +143,7 @@ export function htmlToText(html: string): string {
   return (d.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-export const JOB_TYPE_OPTIONS = ['Website', 'Newsletter', 'Newsletter ads', 'Custom App', 'Year Book', 'Chat Bot', 'Other job', 'Alumni'];
+export const JOB_TYPE_OPTIONS = ['Website', 'Newsletter', 'Newsletter ads', 'Custom App', 'Year Book', 'Chat Bot', 'Alumni', 'Google Ads', 'IUBenda', 'Hyper', 'SEO', 'CleanTalk', 'Other job'];
 export const STATUS_OPTIONS = ['Awaiting Brief', 'In Design', 'In Progress', 'Complete'];
 export const MONTH_OPTIONS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const REGION_OPTIONS = ['Auckland', 'Waikato', 'Bay of Plenty', 'Hawkes Bay', 'Wellington', 'Wairarapa', 'Canterbury', 'Otago', 'Southland', 'Northland'];

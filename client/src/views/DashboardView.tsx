@@ -81,6 +81,8 @@ export function DashboardView() {
     totalHosting: '*', websiteHosting: 'Website', newslettersRev: 'Newsletter',
     chatBotsRev: 'Chat Bot', alumniRev: 'Alumni', yearbookRev: 'Year Book',
     cad_total: '*', cad_web: 'Website',
+    cad_googleads: 'Google Ads', cad_iubenda: 'IUBenda', cad_hyper: 'Hyper',
+    cad_seo: 'SEO', cad_cleantalk: 'CleanTalk',
   };
   const revValue = (d: KpiDef) => {
     const m = REV_TYPE[d.key];
