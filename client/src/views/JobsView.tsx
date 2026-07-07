@@ -9,11 +9,13 @@ const TAB_DEF = [
   { id: 'all', label: 'All jobs' },
   { id: 'website', label: 'Website' },
   { id: 'newsletter', label: 'Newsletter' },
-  { id: 'ads', label: 'Newsletter ads' },
   { id: 'apps', label: 'Custom apps' },
+  { id: 'chatbot', label: 'Chat bots' },
+  { id: 'yearbook', label: 'Year books' },
+  { id: 'alumni', label: 'Alumni' },
   { id: 'cancelled', label: 'Cancelled' },
 ];
-const TAB_MAP: Record<string, string | null> = { all: null, website: 'Website', newsletter: 'Newsletter', ads: 'Newsletter ads', apps: 'Custom App', cancelled: '__cancelled' };
+const TAB_MAP: Record<string, string | null> = { all: null, website: 'Website', newsletter: 'Newsletter', apps: 'Custom App', chatbot: 'Chat Bot', yearbook: 'Year Book', alumni: 'Alumni', cancelled: '__cancelled' };
 
 function matchTab(j: { jobType: string; status: string }, tab: string) {
   if (tab === 'all') return j.status !== 'Cancelled';
