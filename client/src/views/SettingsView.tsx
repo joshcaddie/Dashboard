@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { useWs } from '../derive';
 import { Icon } from '../components/Icon';
 import { TeamSection } from './TeamSection';
+import { ImportSection } from './ImportSection';
 
 export function SettingsView() {
   const store = useStore();
@@ -78,6 +79,7 @@ export function SettingsView() {
       </div>
     </div>
     <TeamSection />
+    <ImportSection />
     </>
   );
 }
