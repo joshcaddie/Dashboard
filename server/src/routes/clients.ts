@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
+import { requireRole } from '../auth.js';
 
 const router = Router();
 
@@ -10,6 +11,29 @@ router.get('/', async (_req, res) => {
     include: { contacts: { orderBy: { id: 'asc' } } },
   });
   res.json(clients);
+});
+
+// GET /api/clients/no-jobs?ws=... — clients in a workspace with no job attached
+// (jobs link to a client by name). For the "remove non-clients" cleanup.
+router.get('/no-jobs', async (req, res) => {
+  const ws = String(req.query.ws || 'schoolwebsites');
+  const [clients, jobs] = await Promise.all([
+    prisma.client.findMany({ where: { ws }, include: { _count: { select: { contacts: true } } } }),
+    prisma.job.findMany({ where: { ws }, select: { client: true } }),
+  ]);
+  const jobNames = new Set(jobs.map((j) => (j.client || '').trim().toLowerCase()));
+  const jobless = clients
+    .filter((c) => !jobNames.has((c.name || '').trim().toLowerCase()))
+    .map((c) => ({ id: c.id, name: c.name, region: c.region, type: c.type, contacts: c._count.contacts, lastContacted: c.lastContacted }));
+  res.json({ ws, total: clients.length, jobless });
+});
+
+// POST /api/clients/bulk-delete { ids } — super admin. Cascades contacts.
+router.post('/bulk-delete', requireRole('super_admin'), async (req, res) => {
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean);
+  if (!ids.length) return res.json({ ok: true, deleted: 0 });
+  const r = await prisma.client.deleteMany({ where: { id: { in: ids } } });
+  res.json({ ok: true, deleted: r.count });
 });
 
 // Create client
