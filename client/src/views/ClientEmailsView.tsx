@@ -5,7 +5,7 @@ import { useWs } from '../derive';
 import { useModals } from '../modals/ModalProvider';
 import { clientEmailContext, saleEmailContext } from '../emailCtx';
 import { Icon } from '../components/Icon';
-import { initials, avatarColors } from '../lib';
+import { initials, avatarColors, htmlToText } from '../lib';
 
 interface ComposedSrc {
   subject: string;
@@ -45,6 +45,19 @@ interface Item {
   unread: boolean;
   rowBg: string;
   subjWeight: number;
+  gmailId?: string; // set for real Gmail messages (fetch full body on click)
+  bodyText?: string; // set for locally-archived sends (body already available)
+}
+
+interface OpenMsg {
+  loading: boolean;
+  error?: string;
+  subject: string;
+  from: string;
+  to: string;
+  dateStr: string;
+  isOut: boolean;
+  body: string;
 }
 
 export function ClientEmailsView() {
@@ -67,9 +80,11 @@ export function ClientEmailsView() {
       : null;
 
   const arcId = arc ? arc.id : null;
+  const ws = kind === 'sale' ? sale?.ws : client?.ws;
   const [composedSrc, setComposedSrc] = useState<ComposedSrc[]>([]);
   const [gmail, setGmail] = useState<GmailResp | null>(null);
   const [gmailLoading, setGmailLoading] = useState(false);
+  const [openMsg, setOpenMsg] = useState<OpenMsg | null>(null);
 
   useEffect(() => {
     if (arcId == null) { setComposedSrc([]); setGmail(null); return; }
@@ -109,6 +124,7 @@ export function ClientEmailsView() {
     unread: false,
     rowBg: '#fff',
     subjWeight: 600,
+    bodyText: e.body || '',
   }));
 
   const gmailItems: Item[] = (gmail?.messages || []).map((m) => {
@@ -128,8 +144,30 @@ export function ClientEmailsView() {
       unread: m.unread,
       rowBg: m.unread ? '#F6FAF9' : '#fff',
       subjWeight: m.unread ? 700 : 600,
+      gmailId: m.id,
     };
   });
+
+  // Open a message: fetch the full Gmail body, or show the locally-stored one.
+  const openItem = (m: Item) => {
+    const base = { subject: m.subj, from: m.isOut ? '' : m.peer, to: m.isOut ? m.peer : '', dateStr: m.dateStr, isOut: m.isOut };
+    if (m.gmailId && ws) {
+      setOpenMsg({ ...base, loading: true, body: '' });
+      api.get(`/gmail/message?ws=${ws}&id=${encodeURIComponent(m.gmailId)}`)
+        .then((full) => setOpenMsg({
+          loading: false,
+          subject: full.subject || m.subj,
+          from: full.from || base.from,
+          to: full.to || base.to,
+          dateStr: fmtMs(full.dateMs),
+          isOut: full.isOut,
+          body: (full.text || '').trim() || htmlToText(full.html || '') || m.prev,
+        }))
+        .catch((e) => setOpenMsg({ ...base, loading: false, error: e?.message || 'Could not load the email.', body: '' }));
+    } else {
+      setOpenMsg({ ...base, loading: false, body: (m.bodyText || '').trim() || m.prev });
+    }
+  };
 
   // Gmail thread (already includes our sent mail) when connected; otherwise the
   // locally-recorded send archive.
@@ -210,7 +248,7 @@ export function ClientEmailsView() {
         </div>
 
         {filtered.map((m) => (
-          <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '38px 1fr auto', alignItems: 'start', gap: 13, padding: '14px 18px', borderTop: '1px solid #F1F4F7', background: m.rowBg, cursor: 'pointer' }}>
+          <div key={m.id} onClick={() => openItem(m)} style={{ display: 'grid', gridTemplateColumns: '38px 1fr auto', alignItems: 'start', gap: 13, padding: '14px 18px', borderTop: '1px solid #F1F4F7', background: m.rowBg, cursor: 'pointer' }}>
             <span style={{ width: 32, height: 32, borderRadius: 8, marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', background: m.dirBg, color: m.dirFg, transform: m.dirRotate }}>
               <Icon name="arrow-up-right" size={16} />
             </span>
@@ -236,6 +274,32 @@ export function ClientEmailsView() {
           </div>
         )}
       </div>
+
+      {openMsg && (
+        <div onClick={() => setOpenMsg(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(12,24,35,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 680, maxHeight: '86vh', background: '#fff', borderRadius: 14, boxShadow: '0 30px 60px -20px rgba(6,24,32,.5)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '18px 22px', borderBottom: '1px solid #EEF2F5' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 700, color: '#12222F', lineHeight: 1.35 }}>{openMsg.subject}</div>
+                <div style={{ fontSize: 12.5, color: '#6B7C8C', marginTop: 5 }}>
+                  <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', padding: '2px 8px', borderRadius: 999, background: openMsg.isOut ? soft : '#EAF1F8', color: openMsg.isOut ? accent : '#2B6CB0', marginRight: 8 }}>{openMsg.isOut ? 'Sent' : 'Received'}</span>
+                  {openMsg.from && <span>From {openMsg.from} · </span>}{openMsg.to && <span>To {openMsg.to} · </span>}{openMsg.dateStr}
+                </div>
+              </div>
+              <button onClick={() => setOpenMsg(null)} style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, border: '1px solid #E1E8ED', background: '#fff', color: '#6B7C8C', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="x" size={17} /></button>
+            </div>
+            <div style={{ padding: '18px 22px', overflowY: 'auto' }}>
+              {openMsg.loading ? (
+                <div style={{ color: '#8695A2', fontSize: 13.5 }}>Loading email…</div>
+              ) : openMsg.error ? (
+                <div style={{ color: '#C22F35', fontSize: 13.5, fontWeight: 600 }}>{openMsg.error}</div>
+              ) : (
+                <div style={{ fontSize: 13.5, color: '#33475A', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{openMsg.body || '(no content)'}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

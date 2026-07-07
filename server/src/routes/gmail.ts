@@ -4,7 +4,7 @@ import { prisma } from '../db.js';
 import { requireAuth, requireRole, type SessionUser } from '../auth.js';
 import {
   gcfg, isConfigured, authUrl, exchangeCode, encryptToken,
-  isConnected, listForAddresses, clearTokenCache, clearMailboxCache,
+  isConnected, listForAddresses, getMessageFull, clearTokenCache, clearMailboxCache,
 } from '../gmail.js';
 
 const router = Router();
@@ -147,6 +147,20 @@ router.get('/threads', requireAuth, async (req, res, next) => {
   } catch (e: any) {
     // Surface a clean message but don't 500 the whole view.
     res.json({ connected: true, error: e?.message || 'Could not load Gmail history.', messages: [] });
+  }
+});
+
+// GET /api/gmail/message?ws=schoolwebsites&id=... — full body of one message.
+router.get('/message', requireAuth, async (req, res, next) => {
+  try {
+    const ws = String(req.query.ws || '');
+    const id = String(req.query.id || '');
+    if (!WORKSPACES.includes(ws)) return res.status(400).json({ error: 'Unknown workspace.' });
+    if (!id) return res.status(400).json({ error: 'Missing message id.' });
+    if (!(await isConnected(ws))) return res.status(400).json({ error: 'Gmail isn’t connected for this workspace.' });
+    res.json(await getMessageFull(ws, id));
+  } catch (e: any) {
+    res.status(502).json({ error: e?.message || 'Could not load the email.' });
   }
 });
 

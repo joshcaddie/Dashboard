@@ -168,6 +168,39 @@ export async function listForAddresses(ws: string, addresses: string[], max = 25
   return msgs.sort((a, b) => b.dateMs - a.dateMs);
 }
 
+export interface GmailFull extends GmailMsg { cc: string; text: string; html: string; }
+
+// Recursively collect text/plain and text/html bodies from a payload tree.
+function walkParts(payload: any, acc: { text: string; html: string }) {
+  if (!payload) return;
+  const mt = payload.mimeType || '';
+  if (payload.body?.data) {
+    const decoded = Buffer.from(payload.body.data, 'base64url').toString('utf8');
+    if (mt === 'text/plain') acc.text += decoded;
+    else if (mt === 'text/html') acc.html += decoded;
+  }
+  for (const p of payload.parts || []) walkParts(p, acc);
+}
+
+export async function getMessageFull(ws: string, id: string): Promise<GmailFull> {
+  const full = await gapi(ws, `messages/${id}?format=full`);
+  const hs = full.payload?.headers || [];
+  const acc = { text: '', html: '' };
+  walkParts(full.payload, acc);
+  const from = header(hs, 'From');
+  const mine = (await getMailboxEmail(ws)).toLowerCase();
+  return {
+    id: full.id, threadId: full.threadId,
+    from, to: header(hs, 'To'), cc: header(hs, 'Cc'),
+    subject: header(hs, 'Subject') || '(no subject)',
+    snippet: (full.snippet || '').trim(),
+    dateMs: Number(full.internalDate || 0),
+    isOut: emailOnly(from) === mine,
+    unread: (full.labelIds || []).includes('UNREAD'),
+    text: acc.text.trim(), html: acc.html.trim(),
+  };
+}
+
 // Cache the connected mailbox address (used to decide message direction).
 const mailboxCache = new Map<string, string>();
 async function getMailboxEmail(ws: string): Promise<string> {
