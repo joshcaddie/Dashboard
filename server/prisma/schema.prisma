@@ -105,6 +105,19 @@ model Target {
   value Float  @default(0)
 }
 
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  name         String
+  passwordHash String? // null until the user sets a password (invited users)
+  role         String    @default("member") // 'super_admin' | 'admin' | 'member'
+  status       String    @default("invited") // 'active' | 'invited'
+  createdAt    DateTime  @default(now())
+  // Set-password token (used for both invite acceptance and forgot-password)
+  tokenHash    String?
+  tokenExpiry  DateTime?
+}
+
 model SentEmail {
   id      Int      @id @default(autoincrement())
   kind    String // 'client' | 'sale'

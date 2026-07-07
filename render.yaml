@@ -19,3 +19,15 @@ services:
       # Optional — enables real AI email drafting via Claude.
       - key: ANTHROPIC_API_KEY
         sync: false
+      # SMTP2GO keys for real email sending (per agency). The SchoolWebsites key
+      # also sends auth emails (invites / password resets).
+      - key: SMTP2GO_API_KEY_SCHOOLWEBSITES
+        sync: false
+      - key: SMTP2GO_API_KEY_CADDIE
+        sync: false
+      # Optional — starting password for the super admin's first sign-in.
+      - key: SUPERADMIN_INITIAL_PASSWORD
+        sync: false
+      # Optional — fixed secret for login sessions (else derived from DATABASE_URL).
+      - key: JWT_SECRET
+        sync: false

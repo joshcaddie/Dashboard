@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { useWs } from '../derive';
 import { Icon } from '../components/Icon';
+import { TeamSection } from './TeamSection';
 
 export function SettingsView() {
   const store = useStore();
@@ -31,6 +32,7 @@ export function SettingsView() {
   const delBtn = { width: 30, height: 30, borderRadius: 8, border: '1px solid #EEF1F4', background: '#fff', color: '#B6C1CB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } as const;
 
   return (
+    <>
     <div style={{ maxWidth: 1000, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
       <div style={card}>
         <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid #EEF2F5' }}>
@@ -75,5 +77,7 @@ export function SettingsView() {
         </div>
       </div>
     </div>
+    <TeamSection />
+    </>
   );
 }

@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import { useStore, type View } from '../store';
 import { useWs } from '../derive';
+import { useAuth, ROLE_LABEL } from '../auth';
 import { Icon } from './Icon';
 import type { Workspace } from '../types';
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
 
 const NAV: { id: View; label: string; icon: string; badge?: 'clients' | 'sales' | 'jobs' | 'progress' }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
@@ -22,6 +29,7 @@ export function Sidebar() {
   const store = useStore();
   const { theme, wsClients, wsJobs, wsSales, wsCfg, wsId } = useWs();
   const { config } = store;
+  const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const progressCount = wsJobs.filter((j) => IN_PROGRESS.includes(j.status)).length;
@@ -147,12 +155,18 @@ export function Sidebar() {
       })}
 
       <div style={{ marginTop: 'auto', padding: 14, borderRadius: 15, background: theme.sidebarCard, display: 'flex', alignItems: 'center', gap: 11 }}>
-        <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg,${theme.accent},#2B6CB0)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>RW</div>
-        <div style={{ lineHeight: 1.25, minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: theme.sidebarTitle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Rachel Wills</div>
-          <div style={{ fontSize: 11.5, fontWeight: 500, color: theme.sidebarMuted }}>Account Manager</div>
+        <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg,${theme.accent},#2B6CB0)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{initials(user?.name || '')}</div>
+        <div style={{ lineHeight: 1.25, minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: theme.sidebarTitle, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || '—'}</div>
+          <div style={{ fontSize: 11.5, fontWeight: 500, color: theme.sidebarMuted }}>{ROLE_LABEL[user?.role || ''] || 'Team member'}</div>
         </div>
-        <Icon name="log-out" size={17} style={{ color: theme.sidebarMuted, cursor: 'pointer' }} />
+        <button
+          onClick={() => logout()}
+          title="Sign out"
+          style={{ border: 'none', background: 'transparent', padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+        >
+          <Icon name="log-out" size={17} style={{ color: theme.sidebarMuted }} />
+        </button>
       </div>
     </aside>
   );

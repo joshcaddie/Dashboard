@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
@@ -11,21 +12,33 @@ import tasks from './routes/tasks.js';
 import misc from './routes/misc.js';
 import ai from './routes/ai.js';
 import sendEmail from './routes/email.js';
+import auth from './routes/auth.js';
+import users from './routes/users.js';
+import { attachUser, requireAuth, ensureSuperAdmin } from './auth.js';
 
 const app = express();
+// Behind Render's TLS-terminating proxy — needed for req.secure / secure cookies.
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
+app.use(cookieParser());
+app.use(attachUser);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-app.use('/api/clients', clients);
-app.use('/api/contacts', contacts);
-app.use('/api/jobs', jobs);
-app.use('/api/sales', sales);
-app.use('/api/tasks', tasks);
-app.use('/api/ai', ai);
-app.use('/api/send-email', sendEmail);
-app.use('/api', misc);
+// Public auth routes (login, forgot, reset, me).
+app.use('/api/auth', auth);
+
+// Everything below requires a signed-in user.
+app.use('/api/users', users); // (further gated to admin+ inside the router)
+app.use('/api/clients', requireAuth, clients);
+app.use('/api/contacts', requireAuth, contacts);
+app.use('/api/jobs', requireAuth, jobs);
+app.use('/api/sales', requireAuth, sales);
+app.use('/api/tasks', requireAuth, tasks);
+app.use('/api/ai', requireAuth, ai);
+app.use('/api/send-email', requireAuth, sendEmail);
+app.use('/api', requireAuth, misc);
 
 // ---- Serve the built React app (single service) ----
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -45,4 +58,5 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 const port = Number(process.env.PORT) || 4000;
+ensureSuperAdmin().catch((e) => console.error('ensureSuperAdmin failed:', e?.message));
 app.listen(port, () => console.log(`Schoolhub API listening on http://localhost:${port}`));
