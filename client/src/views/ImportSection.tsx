@@ -4,7 +4,7 @@ import { useAuth } from '../auth';
 import { useWs } from '../derive';
 import { Icon } from '../components/Icon';
 
-type Files = { clients: File | null; contacts: File | null; jobs: File | null };
+type Files = { clients: File | null; contacts: File | null; jobs: File | null; sales: File | null };
 
 const readText = (f: File | null): Promise<string> =>
   f ? f.text() : Promise.resolve('');
@@ -13,7 +13,7 @@ export function ImportSection() {
   const { user } = useAuth();
   const { theme, wsId, wsCfg } = useWs();
   const accent = theme.accent;
-  const [files, setFiles] = useState<Files>({ clients: null, contacts: null, jobs: null });
+  const [files, setFiles] = useState<Files>({ clients: null, contacts: null, jobs: null, sales: null });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -32,22 +32,34 @@ export function ImportSection() {
 
   const run = async () => {
     if (busy || isCombined) return;
-    if (!files.clients && !files.jobs) {
-      setMsg({ ok: false, text: 'Choose at least the Clients or Jobs CSV.' });
+    if (!files.clients && !files.jobs && !files.sales) {
+      setMsg({ ok: false, text: 'Choose at least one CSV to import.' });
       return;
     }
-    if (!confirm(`This will PERMANENTLY DELETE all current ${wsName} clients, contacts and jobs, then load the uploaded spreadsheets in their place. Continue?`)) return;
+    // Only the categories you upload get replaced.
+    const replacing = [
+      files.clients && 'clients' + (files.contacts ? ' + contacts' : ''),
+      files.jobs && 'jobs',
+      files.sales && 'leads',
+    ].filter(Boolean).join(', ');
+    if (!confirm(`This replaces ${wsName} ${replacing} with the uploaded file(s). Other data types are left untouched. Continue?`)) return;
     setBusy(true); setMsg(null);
     try {
-      const [clientsCsv, contactsCsv, jobsCsv] = await Promise.all([
-        readText(files.clients), readText(files.contacts), readText(files.jobs),
+      const [clientsCsv, contactsCsv, jobsCsv, salesCsv] = await Promise.all([
+        readText(files.clients), readText(files.contacts), readText(files.jobs), readText(files.sales),
       ]);
-      const r = await api.post('/import', { workspace: wsId, clientsCsv, contactsCsv, jobsCsv });
+      const r = await api.post('/import', { workspace: wsId, clientsCsv, contactsCsv, jobsCsv, salesCsv });
+      const parts = [
+        r.clients != null ? `${r.clients} clients` : '',
+        r.contactsInserted != null ? `${r.contactsInserted} contacts` : '',
+        r.jobs != null ? `${r.jobs} jobs` : '',
+        r.sales != null ? `${r.sales} leads` : '',
+      ].filter(Boolean).join(', ');
       const skips = [
-        r.contactsSkipped ? `${r.contactsSkipped} contacts had no matching client` : '',
+        r.contactsSkipped ? `${r.contactsSkipped} contacts unmatched` : '',
         r.jobsSkipped ? `${r.jobsSkipped} jobs had no client name` : '',
       ].filter(Boolean).join('; ');
-      setMsg({ ok: true, text: `Imported ${r.clients} clients, ${r.contactsInserted} contacts and ${r.jobs} jobs${skips ? ` (skipped: ${skips})` : ''}. Reloading…` });
+      setMsg({ ok: true, text: `Imported ${parts}${skips ? ` (skipped: ${skips})` : ''}. Reloading…` });
       setTimeout(() => window.location.reload(), 1400);
     } catch (e: any) {
       setMsg({ ok: false, text: e?.message || 'Import failed.' });
@@ -77,7 +89,7 @@ export function ImportSection() {
       <div style={card}>
         <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid #EEF2F5' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#12222F' }}>Import data — {isCombined ? 'select a workspace' : wsName}</div>
-          <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 2 }}>Upload CSV exports to replace all {isCombined ? 'clients, contacts & jobs in one workspace' : `${wsName} clients, contacts & jobs`}</div>
+          <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 2 }}>Upload CSV exports to replace {isCombined ? 'data in one workspace' : `${wsName} clients, contacts, jobs or leads`}</div>
         </div>
         <div style={{ padding: '16px 22px' }}>
           {isCombined ? (
@@ -90,13 +102,14 @@ export function ImportSection() {
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', borderRadius: 8, background: '#FEF6E7', border: '1px solid #F5E3BE', marginBottom: 14 }}>
                 <Icon name="triangle-alert" size={16} style={{ color: '#B7791F', flexShrink: 0, marginTop: 1 }} />
                 <div style={{ fontSize: 12.5, color: '#8A6516', lineHeight: 1.5 }}>
-                  This <strong>deletes and replaces</strong> every current {wsName} record. The {otherName} workspace is not affected. Contacts are matched to clients by business name.
+                  <strong>Only the file types you upload are replaced</strong> — the rest of {wsName} (and the {otherName} workspace) is left untouched. Contacts match to clients by business name; leads match the NZ schools directory format.
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {filePicker('clients', 'Clients CSV', 'Business Name, Region, School Roll, Website…')}
-                {filePicker('contacts', 'Contacts CSV', 'First/Last Name, Email, Business Name… (optional)')}
+                {filePicker('contacts', 'Contacts CSV', 'First/Last Name, Email, Business Name… (needs Clients)')}
                 {filePicker('jobs', 'Jobs CSV', 'Client Name, Job Type, Revenue, Hosting…')}
+                {filePicker('sales', 'Leads / Sales CSV', 'School Name, Principal, School Type, Roll, City…')}
               </div>
               {msg && (
                 <div style={{ fontSize: 12.5, fontWeight: 600, color: msg.ok ? '#2E7D6B' : '#C22F35', margin: '12px 2px 0' }}>{msg.text}</div>

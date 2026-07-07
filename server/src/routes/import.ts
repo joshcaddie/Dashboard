@@ -106,8 +106,26 @@ const STATUS_FIX: Record<string, string> = {
   'In Development': 'In Progress',
 };
 
-// POST /api/import  { workspace, clientsCsv, contactsCsv, jobsCsv }
-// Super-admin only. Replaces ALL data for the given workspace with the CSVs.
+// Look up a record's value by a header, ignoring case/spacing/punctuation
+// (the schools directory uses headers like "Email^" and "Principal*").
+function normalizeKeys(rec: Record<string, string>): Record<string, string> {
+  const o: Record<string, string> = {};
+  for (const k in rec) o[k.toLowerCase().replace(/[^a-z0-9]/g, '')] = rec[k];
+  return o;
+}
+// Map an NZ "School Type" to the Sales view's category buckets.
+function saleCategory(t: string): string {
+  const s = (t || '').toLowerCase();
+  if (s.includes('intermediate')) return 'Intermediate';
+  if (s.includes('secondary')) return 'Secondary';
+  if (s.includes('composite') || s.includes('area')) return 'Composite / Area';
+  if (s.includes('primary') || s.includes('contributing')) return 'Primary';
+  return 'Specialist / Other';
+}
+
+// POST /api/import  { workspace, clientsCsv, contactsCsv, jobsCsv, salesCsv }
+// Super-admin only. Only the data types you provide a CSV for are replaced;
+// everything else in the workspace is left untouched.
 router.post('/', requireRole('super_admin'), async (req, res, next) => {
   try {
     const ws = String(req.body?.workspace || 'schoolwebsites');
@@ -119,9 +137,10 @@ router.post('/', requireRole('super_admin'), async (req, res, next) => {
     const clientRecs = parseRecords(req.body?.clientsCsv || '');
     const contactRecs = parseRecords(req.body?.contactsCsv || '');
     const jobRecs = parseRecords(req.body?.jobsCsv || '');
+    const saleRecs = parseRecords(req.body?.salesCsv || '');
 
-    if (!clientRecs.length && !jobRecs.length) {
-      return res.status(400).json({ error: 'No rows found — check the Clients/Jobs CSV files.' });
+    if (!clientRecs.length && !jobRecs.length && !saleRecs.length) {
+      return res.status(400).json({ error: 'No rows found — check the uploaded CSV files.' });
     }
 
     // ---- Map clients ----
@@ -167,56 +186,94 @@ router.post('/', requireRole('super_admin'), async (req, res, next) => {
     const jobsSkipped = jobData.filter((j) => !j.client).length;
     const jobsToInsert = jobData.filter((j) => j.client);
 
-    // ---- Wipe + insert in one transaction ----
+    // ---- Map sales / leads (e.g. the NZ schools directory) ----
+    const saleData = saleRecs.map((r) => {
+      const n = normalizeKeys(r);
+      return {
+        name: (n['schoolname'] || n['businessname'] || n['name'] || '').trim(),
+        town: (n['postaladdresscity'] || n['town'] || n['city'] || '').trim(),
+        category: saleCategory(n['schooltype'] || n['category'] || ''),
+        region: fixRegion(n['region'] || ''),
+        roll: Math.round(Number(n['totalschoolroll'] || n['schoolroll'] || n['roll']) || 0),
+        principal: (n['principal'] || n['contactname'] || '—').trim() || '—',
+        email: (n['email'] || '').trim(),
+        stage: 'New',
+        ws,
+        phone: (n['telephone'] || n['phone'] || '').trim(),
+        website: cleanWebsite(n['schoolwebsite'] || n['website'] || ''),
+      };
+    }).filter((s) => s.name);
+
+    const didClients = clientData.length > 0;
+    const didJobs = jobRecs.length > 0;
+    const didSales = saleData.length > 0;
+
+    // ---- Replace only the provided entities, in one transaction ----
     const result = await prisma.$transaction(async (tx) => {
-      // Remove everything in this workspace. Contacts cascade from clients;
-      // sale notes/tasks cascade from sales.
-      await tx.client.deleteMany({ where: { ws } });
-      await tx.job.deleteMany({ where: { ws } });
-      await tx.sale.deleteMany({ where: { ws } });
+      const out: Record<string, number> = {};
 
-      if (clientData.length) await tx.client.createMany({ data: clientData });
-      if (jobsToInsert.length) await tx.job.createMany({ data: jobsToInsert });
+      if (didClients) {
+        await tx.client.deleteMany({ where: { ws } }); // contacts cascade
+        await tx.client.createMany({ data: clientData });
+        out.clients = clientData.length;
 
-      // Make sure any sales channels / referral partners referenced by the jobs
-      // exist in the settings lists (so they show in the dropdowns). Never removes.
-      const channels = [...new Set(jobsToInsert.map((j) => j.salesChannel).filter(Boolean))];
-      const partners = [...new Set(jobsToInsert.map((j) => j.referralPartner).filter(Boolean))];
-      if (channels.length) await tx.salesChannel.createMany({ data: channels.map((name, i) => ({ name, order: 100 + i })), skipDuplicates: true });
-      if (partners.length) await tx.referralPartner.createMany({ data: partners.map((name, i) => ({ name, order: 100 + i })), skipDuplicates: true });
+        const created = await tx.client.findMany({ where: { ws }, select: { id: true, name: true } });
+        const idByName = new Map<string, number>();
+        for (const c of created) { const k = c.name.toLowerCase(); if (!idByName.has(k)) idByName.set(k, c.id); }
 
-      // Build a name -> clientId map for contacts (case-insensitive, first match wins).
-      const created = await tx.client.findMany({ where: { ws }, select: { id: true, name: true } });
-      const idByName = new Map<string, number>();
-      for (const c of created) {
-        const k = c.name.toLowerCase();
-        if (!idByName.has(k)) idByName.set(k, c.id);
+        let contactsInserted = 0, contactsSkipped = 0;
+        const contactData: any[] = [];
+        for (const r of contactRecs) {
+          const clientId = idByName.get((r['Business Name'] || '').toLowerCase());
+          if (!clientId) { contactsSkipped++; continue; }
+          const name = `${r['First Name'] || ''} ${r['Last Name'] || ''}`.trim();
+          if (!name && !(r['Email'] || '').trim()) { contactsSkipped++; continue; }
+          contactData.push({ clientId, name: name || '—', title: r['Job Title'] || 'Contact', email: r['Email'] || '—', phone: r['Phone'] || '—' });
+          contactsInserted++;
+        }
+        if (contactData.length) await tx.contact.createMany({ data: contactData });
+        out.contactsInserted = contactsInserted;
+        out.contactsSkipped = contactsSkipped;
       }
 
-      let contactsInserted = 0, contactsSkipped = 0;
-      const contactData: any[] = [];
-      for (const r of contactRecs) {
-        const bn = (r['Business Name'] || '').toLowerCase();
-        const clientId = idByName.get(bn);
-        if (!clientId) { contactsSkipped++; continue; }
-        const name = `${r['First Name'] || ''} ${r['Last Name'] || ''}`.trim();
-        if (!name && !(r['Email'] || '').trim()) { contactsSkipped++; continue; }
-        contactData.push({
-          clientId,
-          name: name || '—',
-          title: r['Job Title'] || 'Contact',
-          email: r['Email'] || '—',
-          phone: r['Phone'] || '—',
-        });
-        contactsInserted++;
+      if (didJobs) {
+        await tx.job.deleteMany({ where: { ws } });
+        if (jobsToInsert.length) await tx.job.createMany({ data: jobsToInsert });
+        out.jobs = jobsToInsert.length;
+        out.jobsSkipped = jobsSkipped;
+        // Ensure referenced sales channels / referral partners exist (never removes).
+        const channels = [...new Set(jobsToInsert.map((j) => j.salesChannel).filter(Boolean))];
+        const partners = [...new Set(jobsToInsert.map((j) => j.referralPartner).filter(Boolean))];
+        if (channels.length) await tx.salesChannel.createMany({ data: channels.map((name, i) => ({ name, order: 100 + i })), skipDuplicates: true });
+        if (partners.length) await tx.referralPartner.createMany({ data: partners.map((name, i) => ({ name, order: 100 + i })), skipDuplicates: true });
       }
-      if (contactData.length) await tx.contact.createMany({ data: contactData });
 
-      return { clients: clientData.length, jobs: jobsToInsert.length, jobsSkipped, contactsInserted, contactsSkipped };
+      if (didSales) {
+        await tx.sale.deleteMany({ where: { ws } }); // notes/tasks cascade
+        await tx.sale.createMany({ data: saleData.map((s) => ({ name: s.name, town: s.town, category: s.category, region: s.region, roll: s.roll, principal: s.principal, email: s.email, stage: s.stage, ws })) });
+        out.sales = saleData.length;
+
+        // Preserve phone / website (no Sale columns for them) as an initial note.
+        const created = await tx.sale.findMany({ where: { ws }, select: { id: true, name: true } });
+        const idByName = new Map<string, number>();
+        for (const s of created) { const k = s.name.toLowerCase(); if (!idByName.has(k)) idByName.set(k, s.id); }
+        const noteData: any[] = [];
+        for (const s of saleData) {
+          if (!s.phone && !s.website) continue;
+          const saleId = idByName.get(s.name.toLowerCase());
+          if (!saleId) continue;
+          const bits = [s.phone ? `☎ ${s.phone}` : '', s.website ? `🔗 ${s.website}` : ''].filter(Boolean).join('  ·  ');
+          noteData.push({ saleId, text: bits, ts: 'Imported' });
+        }
+        if (noteData.length) await tx.saleNote.createMany({ data: noteData });
+      }
+
+      return out;
     }, { timeout: 120000 });
 
     // Advance Postgres identity sequences past the rows we just inserted.
-    for (const table of ['Client', 'Contact', 'Job']) {
+    const seqTables = [didClients && 'Client', didClients && 'Contact', didJobs && 'Job', didSales && 'Sale', didSales && 'SaleNote'].filter(Boolean) as string[];
+    for (const table of seqTables) {
       await prisma.$executeRawUnsafe(
         `SELECT setval(pg_get_serial_sequence('"${table}"','id'), COALESCE((SELECT MAX(id) FROM "${table}"), 1))`,
       );
