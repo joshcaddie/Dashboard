@@ -4,6 +4,7 @@ import { useWs } from '../derive';
 import { useModals } from '../modals/ModalProvider';
 import { clientEmailContext } from '../emailCtx';
 import { Icon } from '../components/Icon';
+import { Modal } from '../components/Modal';
 import { money, num, typeStyle, initials, avatarColors } from '../lib';
 import { kpiValue } from '../kpi';
 import type { KpiDef } from '../types';
@@ -74,6 +75,8 @@ export function DashboardView() {
   const modals = useModals();
   const accent = theme.accent, soft = theme.soft;
   const [hoverBar, setHoverBar] = useState<number | null>(null);
+  // Referral partner whose contributing jobs are shown in a breakdown modal.
+  const [openPartner, setOpenPartner] = useState<string | null>(null);
   // Clients skipped for this session — dropped from the prompt so the next
   // overdue client takes their place.
   const [skipped, setSkipped] = useState<Set<number>>(new Set());
@@ -296,15 +299,44 @@ export function DashboardView() {
         <div style={{ fontSize: 12.5, color: '#6B7C8C', marginTop: 3, marginBottom: 18 }}>Total job revenue from referral-partner leads</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {refArr.map((b) => (
-            <div key={b.name} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '7px 0' }}>
+            <div key={b.name} onClick={() => setOpenPartner(b.name)} title={`View ${b.name}'s jobs`} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '7px 8px', margin: '0 -8px', borderRadius: 8, cursor: 'pointer', transition: 'background .12s' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#F6F9FB')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
               <div style={{ width: 150, flexShrink: 0, fontSize: 13, fontWeight: 600, color: '#33475A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.name}</div>
               <div style={{ flex: 1, height: 14, borderRadius: 999, background: '#EEF2F5', overflow: 'hidden' }}><div style={{ height: '100%', width: `${+((b.value / refMax) * 100).toFixed(1)}%`, background: accent, borderRadius: 999, transition: 'width .5s' }} /></div>
               <div style={{ width: 84, flexShrink: 0, textAlign: 'right', fontSize: 13.5, fontWeight: 700, color: '#0F2233', fontVariantNumeric: 'tabular-nums' }}>{money(b.value)}</div>
+              <Icon name="chevron-right" size={16} style={{ color: '#B6C1CB', flexShrink: 0 }} />
             </div>
           ))}
           {refArr.length === 0 && <div style={{ padding: 30, textAlign: 'center', color: '#9AA8B4', fontSize: 13.5, fontWeight: 600 }}>No referral-partner revenue yet</div>}
         </div>
       </div>
+
+      {openPartner && (() => {
+        const pj = wsJobs.filter((j) => j.referralPartner === openPartner).sort((a, b) => (b.dev + b.host) - (a.dev + a.host));
+        const total = pj.reduce((a, j) => a + j.dev + j.host, 0);
+        const gcols = '1.6fr 1fr .8fr .8fr .9fr';
+        return (
+          <Modal title={openPartner} subtitle={`${pj.length} ${pj.length === 1 ? 'job' : 'jobs'} · ${money(total)} total job revenue`} onClose={() => setOpenPartner(null)} maxWidth={660}>
+            <div style={{ display: 'grid', gridTemplateColumns: gcols, gap: '0 12px', padding: '11px 24px', background: '#FAFCFD', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#93A1AD' }}>
+              <span>Client</span><span>Type</span><span style={{ textAlign: 'right' }}>Dev</span><span style={{ textAlign: 'right' }}>Hosting</span><span style={{ textAlign: 'right' }}>Total</span>
+            </div>
+            <div style={{ maxHeight: '52vh', overflowY: 'auto' }}>
+              {pj.map((j) => (
+                <div key={j.id} onClick={() => { setOpenPartner(null); store.openJob(j.id); }} title="Open job" style={{ display: 'grid', gridTemplateColumns: gcols, gap: '0 12px', alignItems: 'center', padding: '11px 24px', borderTop: '1px solid #F1F4F7', cursor: 'pointer' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1B2E3D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.client}</div>
+                    <div style={{ fontSize: 11.5, color: '#9AA8B4' }}>{j.region || '—'}</div>
+                  </div>
+                  <div><span style={typeStyle(j.jobType)}>{j.jobType}</span></div>
+                  <div style={{ textAlign: 'right', fontSize: 13, color: '#5A6B7A', fontVariantNumeric: 'tabular-nums' }}>{j.dev ? money(j.dev) : '—'}</div>
+                  <div style={{ textAlign: 'right', fontSize: 13, color: '#5A6B7A', fontVariantNumeric: 'tabular-nums' }}>{j.host ? money(j.host) : '—'}</div>
+                  <div style={{ textAlign: 'right', fontSize: 13.5, fontWeight: 700, color: '#0F2233', fontVariantNumeric: 'tabular-nums' }}>{money(j.dev + j.host)}</div>
+                </div>
+              ))}
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
