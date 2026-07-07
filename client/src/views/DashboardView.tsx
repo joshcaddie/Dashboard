@@ -71,6 +71,36 @@ export function DashboardView() {
   const accent = theme.accent;
   const [hoverBar, setHoverBar] = useState<number | null>(null);
 
+  // Recurring-revenue cards: the real annual-hosting total for each category,
+  // computed from the jobs rather than static config numbers.
+  const hostByType: Record<string, number> = {};
+  let hostAll = 0;
+  wsJobs.forEach((j) => { hostByType[j.jobType] = (hostByType[j.jobType] || 0) + (j.host || 0); hostAll += j.host || 0; });
+  // Maps a revenue-card key to the job type whose hosting it sums ('*' = all types).
+  const REV_TYPE: Record<string, string> = {
+    totalHosting: '*', websiteHosting: 'Website', newslettersRev: 'Newsletter',
+    chatBotsRev: 'Chat Bot', alumniRev: 'Alumni', yearbookRev: 'Year Book',
+    cad_total: '*', cad_web: 'Website',
+  };
+  const revValue = (d: KpiDef) => {
+    const m = REV_TYPE[d.key];
+    if (m === undefined) return d.raw; // no mapping (e.g. Caddie add-ons) → keep configured value
+    return m === '*' ? hostAll : (hostByType[m] || 0);
+  };
+
+  // Client-number cards: real counts of jobs by type, again computed not static.
+  const countByType: Record<string, number> = {};
+  wsJobs.forEach((j) => { countByType[j.jobType] = (countByType[j.jobType] || 0) + 1; });
+  const COUNT_TYPE: Record<string, string> = {
+    websites: 'Website', newsletters: 'Newsletter', chatBots: 'Chat Bot',
+    alumni: 'Alumni', yearbook: 'Year Book',
+    cad_websites: 'Website', cmb_websites: 'Website',
+  };
+  const countValue = (d: KpiDef) => {
+    const m = COUNT_TYPE[d.key];
+    return m === undefined ? d.raw : (countByType[m] || 0);
+  };
+
   // This month's sales
   const tmJobs = wsJobs.filter((j) => j.thisMonth);
   const tmDev = tmJobs.reduce((a, b) => a + b.dev, 0);
@@ -111,7 +141,7 @@ export function DashboardView() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <div style={stripLabel}>Recurring revenue</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 14 }}>
-          {wsCfg.revenueDefs.map((d) => <KpiCard key={d.key} d={d} isMoney hasTargets={wsCfg.hasTargets} target={targets[d.key] || 0} theme={theme} />)}
+          {wsCfg.revenueDefs.map((d) => <KpiCard key={d.key} d={{ ...d, raw: revValue(d) }} isMoney hasTargets={wsCfg.hasTargets} target={targets[d.key] || 0} theme={theme} />)}
         </div>
       </div>
 
@@ -119,7 +149,7 @@ export function DashboardView() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <div style={stripLabel}>Client numbers</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14 }}>
-          {wsCfg.countDefs.map((d) => <KpiCard key={d.key} d={d} isMoney={false} hasTargets={wsCfg.hasTargets} target={targets[d.key] || 0} theme={theme} />)}
+          {wsCfg.countDefs.map((d) => <KpiCard key={d.key} d={{ ...d, raw: countValue(d) }} isMoney={false} hasTargets={wsCfg.hasTargets} target={targets[d.key] || 0} theme={theme} />)}
         </div>
       </div>
 
