@@ -1,15 +1,44 @@
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { useWs } from '../derive';
 import { useModals } from '../modals/ModalProvider';
 import { clientEmailContext } from '../emailCtx';
+import { api } from '../api';
 import { Icon } from '../components/Icon';
 import { initials, avatarColors } from '../lib';
 
 export function ClientsView() {
   const store = useStore();
-  const { theme, wsClients } = useWs();
+  const { theme, wsClients, wsId } = useWs();
   const modals = useModals();
   const accent = theme.accent, soft = theme.soft;
+
+  // Show a "sync last-contacted from Gmail" action when this workspace's mailbox
+  // is connected.
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
+  useEffect(() => {
+    if (wsId === 'combined') { setGmailConnected(false); return; }
+    let alive = true;
+    api.get('/gmail/status')
+      .then((rows) => { if (alive) setGmailConnected(!!(rows || []).find((r: any) => r.ws === wsId && r.connected)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [wsId]);
+
+  const syncContacted = async () => {
+    if (syncing) return;
+    setSyncing(true); setSyncMsg('');
+    try {
+      const r = await api.post('/gmail/sync-contacted', { ws: wsId });
+      setSyncMsg(`Updated ${r.updated} from ${r.scanned} sent emails. Reloading…`);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e: any) {
+      setSyncMsg(e?.message || 'Sync failed.');
+      setSyncing(false);
+    }
+  };
 
   const q = store.clientSearch.trim().toLowerCase();
   let list = wsClients;
@@ -26,7 +55,13 @@ export function ClientsView() {
           <input value={store.clientSearch} onChange={(e) => store.setClientSearch(e.target.value)} placeholder="Search clients…" style={{ width: 260, padding: '9px 12px 9px 35px', border: '1px solid #DEE5EB', borderRadius: 8, fontSize: 13, outline: 'none', background: '#F8FAFB' }} />
         </div>
         <div style={{ flex: 1 }} />
+        {syncMsg && <span style={{ fontSize: 12, fontWeight: 600, color: '#2E7D6B' }}>{syncMsg}</span>}
         <span style={{ fontSize: 12.5, fontWeight: 600, color: '#8695A2' }}>{list.length} clients</span>
+        {gmailConnected && (
+          <button onClick={syncContacted} disabled={syncing} title="Update ‘last contacted’ from your Gmail Sent folder" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 13px', border: '1px solid #DDE4EA', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: '#4B5D6C', cursor: syncing ? 'default' : 'pointer', opacity: syncing ? 0.7 : 1 }}>
+            <Icon name="refresh-cw" size={15} />{syncing ? 'Syncing…' : 'Update from Gmail'}
+          </button>
+        )}
         <button onClick={modals.openAddClient} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Icon name="plus" size={16} />Add client</button>
       </div>
 
@@ -36,7 +71,7 @@ export function ClientsView() {
 
       {list.map((c) => {
         const av = avatarColors(c.name);
-        const last = c.lastContacted || 'Apr 16, 2026';
+        const last = c.lastContacted || '—';
         return (
           <div key={c.id} style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 16px', alignItems: 'center', padding: `${theme.rowPad} 24px`, borderTop: '1px solid #F1F4F7' }}>
             <div onClick={() => store.openClient(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, cursor: 'pointer' }}>

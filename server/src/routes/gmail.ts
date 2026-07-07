@@ -4,7 +4,8 @@ import { prisma } from '../db.js';
 import { requireAuth, requireRole, type SessionUser } from '../auth.js';
 import {
   gcfg, isConfigured, authUrl, exchangeCode, encryptToken,
-  isConnected, listForAddresses, getMessageFull, clearTokenCache, clearMailboxCache,
+  isConnected, listForAddresses, getMessageFull, listSentRecipients,
+  clearTokenCache, clearMailboxCache,
 } from '../gmail.js';
 
 const router = Router();
@@ -147,6 +148,37 @@ router.get('/threads', requireAuth, async (req, res, next) => {
   } catch (e: any) {
     // Surface a clean message but don't 500 the whole view.
     res.json({ connected: true, error: e?.message || 'Could not load Gmail history.', messages: [] });
+  }
+});
+
+// POST /api/gmail/sync-contacted { ws } — set each client's "last contacted"
+// from the most recent email actually sent to their contact addresses in Gmail.
+router.post('/sync-contacted', requireAuth, async (req, res, next) => {
+  try {
+    const ws = String(req.body?.ws || '');
+    if (!WORKSPACES.includes(ws)) return res.status(400).json({ error: 'Unknown workspace.' });
+    if (!(await isConnected(ws))) return res.status(400).json({ error: 'Gmail isn’t connected for this workspace.' });
+
+    const { recipients, scanned } = await listSentRecipients(ws);
+    const clients = await prisma.client.findMany({ where: { ws }, include: { contacts: true } });
+    const fmt = (ms: number) => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    let updated = 0;
+    for (const c of clients) {
+      const addrs = new Set<string>();
+      for (const ct of c.contacts) if (ct.email) addrs.add(ct.email.trim().toLowerCase());
+      const d = deriveEmail(c.contact, c.website);
+      if (d) addrs.add(d.toLowerCase());
+      let max = 0;
+      for (const a of addrs) { const t = recipients.get(a) || 0; if (t > max) max = t; }
+      if (max > 0) {
+        const disp = fmt(max);
+        if (c.lastContacted !== disp) { await prisma.client.update({ where: { id: c.id }, data: { lastContacted: disp } }); updated++; }
+      }
+    }
+    res.json({ ok: true, scanned, updated });
+  } catch (e: any) {
+    res.status(502).json({ error: e?.message || 'Gmail sync failed.' });
   }
 });
 

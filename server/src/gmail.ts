@@ -201,6 +201,39 @@ export async function getMessageFull(ws: string, id: string): Promise<GmailFull>
   };
 }
 
+function extractEmails(s: string): string[] {
+  return (String(s || '').match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || []).map((e) => e.toLowerCase());
+}
+
+// Scan the Sent folder and return the most-recent send time (ms) per recipient
+// address, newest-first, capped so it stays bounded on large mailboxes.
+export async function listSentRecipients(ws: string, cap = 2500): Promise<{ recipients: Map<string, number>; scanned: number }> {
+  const recipients = new Map<string, number>();
+  let pageToken: string | undefined;
+  let scanned = 0;
+  while (scanned < cap) {
+    const list = await gapi(ws, `messages?q=in%3Asent&maxResults=500${pageToken ? `&pageToken=${pageToken}` : ''}`);
+    const ids: { id: string }[] = list.messages || [];
+    if (!ids.length) break;
+    for (let i = 0; i < ids.length; i += 25) {
+      const chunk = ids.slice(i, i + 25);
+      const metas = await Promise.all(chunk.map((m) =>
+        gapi(ws, `messages/${m.id}?format=metadata&metadataHeaders=To&metadataHeaders=Cc`).catch(() => null)));
+      for (const meta of metas) {
+        if (!meta) continue;
+        const dateMs = Number(meta.internalDate || 0);
+        const hs = meta.payload?.headers || [];
+        const addrs = extractEmails(`${header(hs, 'To')},${header(hs, 'Cc')}`);
+        for (const a of addrs) if (dateMs > (recipients.get(a) || 0)) recipients.set(a, dateMs);
+      }
+    }
+    scanned += ids.length;
+    pageToken = list.nextPageToken;
+    if (!pageToken) break;
+  }
+  return { recipients, scanned };
+}
+
 // Cache the connected mailbox address (used to decide message direction).
 const mailboxCache = new Map<string, string>();
 async function getMailboxEmail(ws: string): Promise<string> {
