@@ -32,13 +32,20 @@ router.post('/', async (req, res) => {
   res.status(201).json(client);
 });
 
-// Patch client (e.g. lastContacted)
+// Patch client (any editable field)
 router.patch('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const b = req.body ?? {};
   const data: Record<string, unknown> = {};
-  for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted']) {
+  for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted', 'phone', 'email']) {
     if (k in b) data[k] = b[k];
+  }
+  // Jobs link to a client by name — keep them attached if the name changes.
+  if ('name' in data) {
+    const existing = await prisma.client.findUnique({ where: { id } });
+    if (existing && existing.name !== data.name) {
+      await prisma.job.updateMany({ where: { client: existing.name, ws: existing.ws }, data: { client: String(data.name) } });
+    }
   }
   const client = await prisma.client.update({ where: { id }, data });
   res.json(client);

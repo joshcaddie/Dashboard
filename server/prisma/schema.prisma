@@ -18,6 +18,8 @@ model Client {
   ws            String    @default("schoolwebsites")
   businessType  String    @default("Primary School")
   notes         String    @default("")
+  phone         String    @default("")
+  email         String    @default("")
   lastContacted String? // display string, e.g. "Jul 6, 2026"
   contacts      Contact[]
 }

@@ -53,8 +53,10 @@ interface Store {
   writeWs: () => string;
   // actions
   addClient: (form: any) => Promise<void>;
+  patchClient: (id: number, patch: Partial<Client>) => Promise<void>;
   deleteClient: (id: number) => Promise<void>;
   addContact: (clientId: number, form: any) => Promise<void>;
+  patchContact: (clientId: number, contactId: number, patch: Partial<{ name: string; title: string; email: string; phone: string }>) => Promise<void>;
   removeContact: (clientId: number, contactId: number) => Promise<void>;
   addJob: (form: any) => Promise<void>;
   deleteJob: (id: number) => Promise<void>;
@@ -151,6 +153,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const created: Client = await api.post('/clients', { ...form, ws: writeWs() });
     setClients((cs) => [{ ...created, contacts: created.contacts || [] }, ...cs]);
   };
+  const patchClient = async (id: number, patch: Partial<Client>) => {
+    const before = clients.find((c) => c.id === id);
+    setClients((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    // Jobs link by client name — mirror a rename locally too.
+    if (patch.name && before && before.name !== patch.name) {
+      setJobs((js) => js.map((j) => (j.client === before.name ? { ...j, client: patch.name! } : j)));
+    }
+    await api.patch('/clients/' + id, patch);
+  };
   const deleteClient = async (id: number) => {
     await api.del('/clients/' + id);
     setClients((cs) => cs.filter((c) => c.id !== id));
@@ -158,6 +169,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addContact = async (clientId: number, form: any) => {
     const c = await api.post(`/clients/${clientId}/contacts`, form);
     setClients((cs) => cs.map((x) => (x.id === clientId ? { ...x, contacts: [...x.contacts, c] } : x)));
+  };
+  const patchContact = async (clientId: number, contactId: number, patch: Partial<{ name: string; title: string; email: string; phone: string }>) => {
+    setClients((cs) => cs.map((x) => (x.id === clientId ? { ...x, contacts: x.contacts.map((c) => (c.id === contactId ? { ...c, ...patch } : c)) } : x)));
+    await api.patch('/contacts/' + contactId, patch);
   };
   const removeContact = async (clientId: number, contactId: number) => {
     await api.del('/contacts/' + contactId);
@@ -273,7 +288,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     emailArchiveKind, emailArchiveSaleId, clientEmailFilter, setClientEmailFilter,
     openClient, openJob, openClientEmails, openSaleEmails, goBack,
     writeWs,
-    addClient, deleteClient, addContact, removeContact,
+    addClient, patchClient, deleteClient, addContact, patchContact, removeContact,
     addJob, deleteJob, patchJob,
     addLead, setSaleStage, convertSale,
     addSaleNote, addSaleTask, toggleSaleTask, deleteSaleTask,

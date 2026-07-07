@@ -20,6 +20,8 @@ export interface Client {
   ws: string;
   businessType: string;
   notes: string;
+  phone: string;
+  email: string;
   lastContacted: string | null;
   contacts: Contact[];
 }

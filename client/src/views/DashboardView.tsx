@@ -73,6 +73,9 @@ export function DashboardView() {
   const modals = useModals();
   const accent = theme.accent, soft = theme.soft;
   const [hoverBar, setHoverBar] = useState<number | null>(null);
+  // Clients skipped for this session — dropped from the prompt so the next
+  // overdue client takes their place.
+  const [skipped, setSkipped] = useState<Set<number>>(new Set());
 
   // Daily outreach prompt: clients not contacted in 60+ days (never-contacted
   // count as most overdue), oldest first, capped at 5.
@@ -80,10 +83,11 @@ export function DashboardView() {
   const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
   const lastMs = (s: string | null) => (s ? Date.parse(s) : NaN);
   const toContact = wsClients
-    .filter((c) => { const t = lastMs(c.lastContacted); return isNaN(t) || now - t > SIXTY_DAYS; })
+    .filter((c) => { if (skipped.has(c.id)) return false; const t = lastMs(c.lastContacted); return isNaN(t) || now - t > SIXTY_DAYS; })
     .sort((a, b) => (isNaN(lastMs(a.lastContacted)) ? 0 : lastMs(a.lastContacted)) - (isNaN(lastMs(b.lastContacted)) ? 0 : lastMs(b.lastContacted)))
     .slice(0, 5);
-  const ccCols = '2.2fr 1.3fr .9fr .55fr 1fr 84px';
+  const skip = (id: number) => setSkipped((s) => new Set(s).add(id));
+  const ccCols = '2.2fr 1.3fr .9fr .55fr 1fr 118px';
   const ccIconBtn = { width: 32, height: 32, borderRadius: 8, border: '1px solid #EEF1F4', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } as const;
 
   // Recurring-revenue cards: the real annual-hosting total for each category,
@@ -205,6 +209,7 @@ export function DashboardView() {
                   <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#5A6B7A', fontVariantNumeric: 'tabular-nums' }}>{c.roll}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: c.lastContacted ? '#4B5D6C' : '#B08A2E' }}><Icon name="clock" size={13} style={{ color: c.lastContacted ? '#B6C1CB' : '#D6A648' }} />{c.lastContacted || 'Never'}</div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                    <button title="Skip — show the next client instead" onClick={() => skip(c.id)} style={{ ...ccIconBtn, color: '#8695A2' }}><Icon name="chevrons-right" size={15} /></button>
                     <button title="Email history" onClick={() => store.openClientEmails(c.id)} style={{ ...ccIconBtn, color: '#8695A2' }}><Icon name="list" size={15} /></button>
                     <button title="Send email" onClick={() => modals.openEmail(clientEmailContext(c))} style={{ ...ccIconBtn, color: accent, borderColor: soft, background: soft }}><Icon name="mail" size={15} /></button>
                   </div>
