@@ -32,8 +32,8 @@ export function ClientsView() {
     setSyncing(true); setSyncMsg('');
     try {
       const r = await api.post('/gmail/sync-contacted', { ws: wsId });
-      setSyncMsg(`Updated ${r.updated} from ${r.scanned} sent emails. Reloading…`);
-      setTimeout(() => window.location.reload(), 1200);
+      setSyncMsg(`Matched ${r.matched ?? r.updated} clients from ${r.scanned} sent emails. Reloading…`);
+      setTimeout(() => window.location.reload(), 1400);
     } catch (e: any) {
       setSyncMsg(e?.message || 'Sync failed.');
       setSyncing(false);

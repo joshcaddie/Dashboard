@@ -207,7 +207,7 @@ function extractEmails(s: string): string[] {
 
 // Scan the Sent folder and return the most-recent send time (ms) per recipient
 // address, newest-first, capped so it stays bounded on large mailboxes.
-export async function listSentRecipients(ws: string, cap = 2500): Promise<{ recipients: Map<string, number>; scanned: number }> {
+export async function listSentRecipients(ws: string, cap = 1500): Promise<{ recipients: Map<string, number>; scanned: number }> {
   const recipients = new Map<string, number>();
   let pageToken: string | undefined;
   let scanned = 0;

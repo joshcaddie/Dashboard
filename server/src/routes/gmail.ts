@@ -160,23 +160,35 @@ router.post('/sync-contacted', requireAuth, async (req, res, next) => {
     if (!(await isConnected(ws))) return res.status(400).json({ error: 'Gmail isn’t connected for this workspace.' });
 
     const { recipients, scanned } = await listSentRecipients(ws);
+    // Also collapse to the most-recent send per recipient DOMAIN, so emailing
+    // anyone @school.nz counts as contacting that school.
+    const domainMap = new Map<string, number>();
+    for (const [email, ms] of recipients) {
+      const dom = email.split('@')[1];
+      if (dom && ms > (domainMap.get(dom) || 0)) domainMap.set(dom, ms);
+    }
+    const cleanDomain = (w: string) => (w || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '').trim();
+
     const clients = await prisma.client.findMany({ where: { ws }, include: { contacts: true } });
     const fmt = (ms: number) => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-    let updated = 0;
+    let updated = 0, matched = 0;
     for (const c of clients) {
-      const addrs = new Set<string>();
-      for (const ct of c.contacts) if (ct.email) addrs.add(ct.email.trim().toLowerCase());
-      const d = deriveEmail(c.contact, c.website);
-      if (d) addrs.add(d.toLowerCase());
       let max = 0;
-      for (const a of addrs) { const t = recipients.get(a) || 0; if (t > max) max = t; }
+      // exact contact addresses
+      for (const ct of c.contacts) if (ct.email) { const t = recipients.get(ct.email.trim().toLowerCase()) || 0; if (t > max) max = t; }
+      const d = deriveEmail(c.contact, c.website);
+      if (d) { const t = recipients.get(d.toLowerCase()) || 0; if (t > max) max = t; }
+      // whole-domain match (anyone @ the school's website domain)
+      const dom = cleanDomain(c.website);
+      if (dom) { const t = domainMap.get(dom) || 0; if (t > max) max = t; }
       if (max > 0) {
+        matched++;
         const disp = fmt(max);
         if (c.lastContacted !== disp) { await prisma.client.update({ where: { id: c.id }, data: { lastContacted: disp } }); updated++; }
       }
     }
-    res.json({ ok: true, scanned, updated });
+    res.json({ ok: true, scanned, matched, updated });
   } catch (e: any) {
     res.status(502).json({ error: e?.message || 'Gmail sync failed.' });
   }
