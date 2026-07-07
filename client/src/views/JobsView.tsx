@@ -5,36 +5,51 @@ import { useModals } from '../modals/ModalProvider';
 import { Icon } from '../components/Icon';
 import { money, JOB_TYPE_OPTIONS, STATUS_OPTIONS, MONTH_OPTIONS } from '../lib';
 
-const TAB_DEF = [
-  { id: 'all', label: 'All jobs' },
-  { id: 'website', label: 'Website' },
-  { id: 'newsletter', label: 'Newsletter' },
-  { id: 'apps', label: 'Custom apps' },
-  { id: 'chatbot', label: 'Chat bots' },
-  { id: 'yearbook', label: 'Year books' },
-  { id: 'alumni', label: 'Alumni' },
-  { id: 'cancelled', label: 'Cancelled' },
-];
-const TAB_MAP: Record<string, string | null> = { all: null, website: 'Website', newsletter: 'Newsletter', apps: 'Custom App', chatbot: 'Chat Bot', yearbook: 'Year Book', alumni: 'Alumni', cancelled: '__cancelled' };
+// Tab sets are per-workspace so each agency shows only its own job types.
+// `type` null = all (non-cancelled), '__cancelled' = the cancelled bucket.
+type Tab = { id: string; label: string; type: string | null };
+const ALL: Tab = { id: 'all', label: 'All jobs', type: null };
+const CANCELLED: Tab = { id: 'cancelled', label: 'Cancelled', type: '__cancelled' };
+const T = (id: string, label: string, type: string): Tab => ({ id, label, type });
 
-function matchTab(j: { jobType: string; status: string }, tab: string) {
-  if (tab === 'all') return j.status !== 'Cancelled';
-  if (tab === 'cancelled') return j.status === 'Cancelled';
-  return j.jobType === TAB_MAP[tab] && j.status !== 'Cancelled';
+const TABS_SW: Tab[] = [ALL,
+  T('website', 'Website', 'Website'), T('newsletter', 'Newsletter', 'Newsletter'),
+  T('apps', 'Custom apps', 'Custom App'), T('chatbot', 'Chat bots', 'Chat Bot'),
+  T('yearbook', 'Year books', 'Year Book'), T('alumni', 'Alumni', 'Alumni'), CANCELLED];
+
+const TABS_CADDIE: Tab[] = [ALL,
+  T('website', 'Website', 'Website'), T('googleads', 'Google Ads', 'Google Ads'),
+  T('iubenda', 'IUBenda', 'IUBenda'), T('hyper', 'Hyper', 'Hyper'),
+  T('seo', 'SEO', 'SEO'), T('cleantalk', 'CleanTalk', 'CleanTalk'), CANCELLED];
+
+const TABS_COMBINED: Tab[] = [ALL,
+  T('website', 'Website', 'Website'), T('newsletter', 'Newsletter', 'Newsletter'),
+  T('apps', 'Custom apps', 'Custom App'), T('chatbot', 'Chat bots', 'Chat Bot'),
+  T('yearbook', 'Year books', 'Year Book'), T('alumni', 'Alumni', 'Alumni'),
+  T('googleads', 'Google Ads', 'Google Ads'), T('iubenda', 'IUBenda', 'IUBenda'),
+  T('hyper', 'Hyper', 'Hyper'), T('seo', 'SEO', 'SEO'), T('cleantalk', 'CleanTalk', 'CleanTalk'), CANCELLED];
+
+function matchTab(j: { jobType: string; status: string }, tab: Tab) {
+  if (tab.type === null) return j.status !== 'Cancelled';
+  if (tab.type === '__cancelled') return j.status === 'Cancelled';
+  return j.jobType === tab.type && j.status !== 'Cancelled';
 }
 
 const cellSelect = { width: '100%', padding: '6px 20px 6px 9px', border: '1px solid #E3E9EE', borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: '#fff', color: '#33475A', cursor: 'pointer', outline: 'none' } as const;
 
 export function JobsView() {
   const store = useStore();
-  const { theme, wsJobs } = useWs();
+  const { theme, wsJobs, wsId } = useWs();
   const modals = useModals();
   const accent = theme.accent;
   const [tab, setTab] = useState('all');
 
+  const tabDef = wsId === 'caddie' ? TABS_CADDIE : wsId === 'combined' ? TABS_COMBINED : TABS_SW;
+  const activeTab = tabDef.find((t) => t.id === tab) || tabDef[0];
+
   const cols = '1.7fr .9fr 1.1fr 1.1fr .8fr 1fr 1fr .9fr 44px';
   const q = store.jobSearch.trim().toLowerCase();
-  let list = wsJobs.filter((j) => matchTab(j, tab));
+  let list = wsJobs.filter((j) => matchTab(j, activeTab));
   if (q) list = list.filter((j) => j.client.toLowerCase().includes(q) || j.jobType.toLowerCase().includes(q) || (j.region || '').toLowerCase().includes(q));
   const devTotal = list.reduce((a, b) => a + b.dev, 0);
   const hostTotal = list.reduce((a, b) => a + b.host, 0);
@@ -43,9 +58,9 @@ export function JobsView() {
   return (
     <div style={{ maxWidth: 1360 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-        {TAB_DEF.map((t) => {
-          const active = tab === t.id;
-          const count = wsJobs.filter((j) => matchTab(j, t.id)).length;
+        {tabDef.map((t) => {
+          const active = activeTab.id === t.id;
+          const count = wsJobs.filter((j) => matchTab(j, t)).length;
           return (
             <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 11, border: `1px solid ${active ? 'transparent' : '#E3E9EE'}`, cursor: 'pointer', fontSize: 13, fontWeight: 700, background: active ? accent : '#fff', color: active ? '#fff' : '#516474' }}>
               <span>{t.label}</span>
