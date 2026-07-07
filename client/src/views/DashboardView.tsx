@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { useWs } from '../derive';
+import { useModals } from '../modals/ModalProvider';
+import { clientEmailContext } from '../emailCtx';
 import { Icon } from '../components/Icon';
-import { money, num, typeStyle } from '../lib';
+import { money, num, typeStyle, initials, avatarColors } from '../lib';
 import type { KpiDef } from '../types';
 import type { Theme as ThemeT } from '../theme';
 
@@ -66,10 +68,23 @@ function KpiCard({ d, isMoney, hasTargets, target, theme }: { d: KpiDef; isMoney
 
 export function DashboardView() {
   const store = useStore();
-  const { theme, wsCfg, wsJobs, wsRatio, wsTotal } = useWs();
+  const { theme, wsCfg, wsClients, wsJobs, wsRatio, wsTotal } = useWs();
   const { config, targets } = store;
-  const accent = theme.accent;
+  const modals = useModals();
+  const accent = theme.accent, soft = theme.soft;
   const [hoverBar, setHoverBar] = useState<number | null>(null);
+
+  // Daily outreach prompt: clients not contacted in 60+ days (never-contacted
+  // count as most overdue), oldest first, capped at 5.
+  const now = Date.now();
+  const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
+  const lastMs = (s: string | null) => (s ? Date.parse(s) : NaN);
+  const toContact = wsClients
+    .filter((c) => { const t = lastMs(c.lastContacted); return isNaN(t) || now - t > SIXTY_DAYS; })
+    .sort((a, b) => (isNaN(lastMs(a.lastContacted)) ? 0 : lastMs(a.lastContacted)) - (isNaN(lastMs(b.lastContacted)) ? 0 : lastMs(b.lastContacted)))
+    .slice(0, 5);
+  const ccCols = '2.2fr 1.3fr .9fr .55fr 1fr 84px';
+  const ccIconBtn = { width: 32, height: 32, borderRadius: 8, border: '1px solid #EEF1F4', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } as const;
 
   // Recurring-revenue cards: the real annual-hosting total for each category,
   // computed from the jobs rather than static config numbers.
@@ -153,6 +168,51 @@ export function DashboardView() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14 }}>
           {wsCfg.countDefs.map((d) => <KpiCard key={d.key} d={{ ...d, raw: countValue(d) }} isMoney={false} hasTargets={wsCfg.hasTargets} target={targets[d.key] || 0} theme={theme} />)}
         </div>
+      </div>
+
+      {/* Daily outreach: clients to reconnect with */}
+      <div style={{ ...CARD, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px 12px' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#12222F' }}>Clients to reconnect</div>
+            <div style={{ fontSize: 12.5, color: '#6B7C8C', marginTop: 3 }}>Not contacted in 60+ days · reach out to 5 today to grow existing accounts</div>
+          </div>
+          <button onClick={() => store.goto('clients')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: '#3B4E60', cursor: 'pointer' }}>All clients<Icon name="arrow-right" size={15} /></button>
+        </div>
+        {toContact.length === 0 ? (
+          <div style={{ padding: '34px 24px 40px', textAlign: 'center', color: '#7A8894' }}>
+            <Icon name="party-popper" size={24} style={{ color: '#1B9E6E' }} />
+            <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 10 }}>All caught up — every client contacted within 60 days.</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: ccCols, gap: '0 16px', padding: '10px 24px', background: '#FAFCFD', borderTop: '1px solid #F0F3F6', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: '#93A1AD' }}>
+              <span>Client</span><span>Contact</span><span>Region</span><span style={{ textAlign: 'right' }}>Roll</span><span>Last contacted</span><span></span>
+            </div>
+            {toContact.map((c) => {
+              const av = avatarColors(c.name);
+              return (
+                <div key={c.id} style={{ display: 'grid', gridTemplateColumns: ccCols, gap: '0 16px', alignItems: 'center', padding: '10px 24px', borderTop: '1px solid #F1F4F7' }}>
+                  <div onClick={() => store.openClient(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, cursor: 'pointer' }}>
+                    <span style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, background: av[0], color: av[1] }}>{initials(c.name)}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1B2E3D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+                      <div style={{ fontSize: 11.5, color: '#9AA8B4' }}>{c.website || '—'}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#4B5D6C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contact || '—'}</div>
+                  <div style={{ fontSize: 13, color: '#4B5D6C' }}>{c.region || '—'}</div>
+                  <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: '#5A6B7A', fontVariantNumeric: 'tabular-nums' }}>{c.roll}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: c.lastContacted ? '#4B5D6C' : '#B08A2E' }}><Icon name="clock" size={13} style={{ color: c.lastContacted ? '#B6C1CB' : '#D6A648' }} />{c.lastContacted || 'Never'}</div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                    <button title="Email history" onClick={() => store.openClientEmails(c.id)} style={{ ...ccIconBtn, color: '#8695A2' }}><Icon name="list" size={15} /></button>
+                    <button title="Send email" onClick={() => modals.openEmail(clientEmailContext(c))} style={{ ...ccIconBtn, color: accent, borderColor: soft, background: soft }}><Icon name="mail" size={15} /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
 
       {/* This month's sales */}
