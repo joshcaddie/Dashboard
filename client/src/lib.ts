@@ -118,8 +118,8 @@ export function rollBand(n: number): string {
   return '600+';
 }
 
-// Today, fixed to match the design's reference date (the prototype used 2026-07-06).
-export const TODAY = new Date('2026-07-06T00:00:00');
+// Today at local midnight — used for overdue-task comparisons.
+export const TODAY = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
 
 export function fmtDue(d: string): string {
   if (!d) return 'No date';

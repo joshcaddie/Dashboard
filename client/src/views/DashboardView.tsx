@@ -111,15 +111,21 @@ export function DashboardView() {
   const trendArea = `${x0},${bot} ` + trendLine + ` ${x1},${bot}`;
   const trendLast = pts[pts.length - 1];
 
-  // Hosting renewal bars
-  const mh = config.monthlyBarsBase.map((m) => [m[0], Math.round(m[1] * wsRatio)] as [string, number]);
-  const mhMax = Math.max(...mh.map((m) => m[1]));
+  // Hosting renewal bars — real annual hosting due each calendar month,
+  // summed from the workspace's active jobs by their renewal month.
+  const MH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const MH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const mh = MH_SHORT.map((sh, i) => {
+    const sum = wsJobs.reduce((a, j) => a + (j.status !== 'Cancelled' && j.hostingMonth === MH_FULL[i] ? (j.host || 0) : 0), 0);
+    return [sh, sum] as [string, number];
+  });
+  const mhMax = Math.max(1, ...mh.map((m) => m[1]));
   const peak = mh.reduce((a, b) => (b[1] > a[1] ? b : a));
 
   // Referral partner revenue
   const refMap: Record<string, number> = {};
   wsJobs.forEach((j) => {
-    const rp = j.referralPartner || config.seedRef[j.id];
+    const rp = j.referralPartner;
     if (rp) refMap[rp] = (refMap[rp] || 0) + (j.dev || 0) + (j.host || 0);
   });
   const refArr = Object.keys(refMap).map((k) => ({ name: k, value: refMap[k] })).sort((a, b) => b.value - a.value);
@@ -234,7 +240,7 @@ export function DashboardView() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#0F2233', fontVariantNumeric: 'tabular-nums' }}>{money(wsTotal)}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#1B9E6E' }}>▲ 8.6% YoY</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#8695A2' }}>Annual recurring</div>
           </div>
         </div>
         <svg viewBox="0 0 1000 300" preserveAspectRatio="none" style={{ width: '100%', height: 250, display: 'block' }}>

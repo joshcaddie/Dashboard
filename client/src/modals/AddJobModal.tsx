@@ -11,7 +11,8 @@ export function AddJobModal({ onClose, initialClient }: { onClose: () => void; i
   const accent = theme.accent, soft = theme.soft;
   const preClient = wsClients.find((c) => c.name === initialClient);
   const preRegion = preClient && REGION_OPTIONS.includes(preClient.region) ? preClient.region : 'Auckland';
-  const [form, setForm] = useState({ client: initialClient || '', jobType: 'Website', salesDate: '2026-07-06', status: 'Awaiting Brief', devRevenue: '', monthlyHosting: '', hostingMonth: 'August', region: preRegion, salesChannel: '', referralPartner: '' });
+  const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const [form, setForm] = useState({ client: initialClient || '', jobType: 'Website', salesDate: todayStr, status: 'Awaiting Brief', devRevenue: '', monthlyHosting: '', hostingMonth: 'August', region: preRegion, salesChannel: '', referralPartner: '' });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const fieldFocus = (e: any) => { e.target.style.borderColor = accent; e.target.style.boxShadow = `0 0 0 3px ${soft}`; };

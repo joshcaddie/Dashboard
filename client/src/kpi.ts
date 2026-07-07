@@ -8,7 +8,10 @@ const REV_TYPE: Record<string, string> = {
   cad_total: '*', cad_web: 'Website',
   cad_googleads: 'Google Ads', cad_iubenda: 'IUBenda', cad_hyper: 'Hyper',
   cad_seo: 'SEO', cad_cleantalk: 'CleanTalk',
+  cmb_total: '*', cmb_web: 'Website',
 };
+// Combined-view cards that sum one agency's annual hosting (by workspace, all types).
+const WS_REV: Record<string, string> = { cmb_sw: 'schoolwebsites', cmb_caddie: 'caddie' };
 const COUNT_TYPE: Record<string, string> = {
   websites: 'Website', newsletters: 'Newsletter', chatBots: 'Chat Bot',
   alumni: 'Alumni', yearbook: 'Year Book', cad_websites: 'Website', cmb_websites: 'Website',
@@ -18,6 +21,10 @@ const COUNT_TYPE: Record<string, string> = {
 // Falls back to the configured value for keys with no job-type mapping
 // (e.g. Caddie add-ons that aren't derived from data).
 export function kpiValue(d: KpiDef, wsJobs: Job[]): number {
+  const wsKey = WS_REV[d.key];
+  if (wsKey !== undefined) {
+    return wsJobs.reduce((a, j) => a + ((j.ws || 'schoolwebsites') === wsKey ? (j.host || 0) : 0), 0);
+  }
   const rev = REV_TYPE[d.key];
   if (rev !== undefined) {
     return wsJobs.reduce((a, j) => a + (rev === '*' || j.jobType === rev ? (j.host || 0) : 0), 0);

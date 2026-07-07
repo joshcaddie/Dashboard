@@ -21,15 +21,19 @@ export function useWs(): WsView {
   const theme = makeTheme(wsCfg);
   const inWs = (ws: string | undefined) => wsId === 'combined' || (ws || 'schoolwebsites') === wsId;
   const match = <T extends { ws?: string }>(r: T) => inWs(r.ws);
+  const wsJobs = jobs.filter(match);
+  // Annual recurring revenue = sum of active jobs' annual hosting (live from data).
+  const wsTotal = wsJobs.reduce((a, j) => a + (j.status !== 'Cancelled' ? (j.host || 0) : 0), 0);
   return {
     wsId,
     wsCfg,
     theme,
     wsClients: clients.filter(match),
-    wsJobs: jobs.filter(match),
+    wsJobs,
     wsSales: sales.filter(match),
-    wsTotal: wsCfg.total,
-    wsRatio: wsCfg.total / 247658,
+    wsTotal,
+    // Scales the illustrative trend-line shape so it lands on the real total.
+    wsRatio: wsTotal / 247658,
     inWs,
   };
 }

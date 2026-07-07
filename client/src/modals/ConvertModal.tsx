@@ -10,7 +10,7 @@ export function ConvertModal({ saleId, onClose }: { saleId: number; onClose: () 
   const { theme } = useWs();
   const accent = theme.accent, soft = theme.soft;
   const sale = store.sales.find((s) => s.id === saleId);
-  const [form, setForm] = useState({ jobType: 'Website', devRevenue: '1800', monthlyHosting: '60', hostingMonth: 'August' });
+  const [form, setForm] = useState({ jobType: 'Website', devRevenue: '', monthlyHosting: '', hostingMonth: 'August' });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const fieldFocus = (e: any) => { e.target.style.borderColor = accent; e.target.style.boxShadow = `0 0 0 3px ${soft}`; };
