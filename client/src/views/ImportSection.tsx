@@ -11,7 +11,7 @@ const readText = (f: File | null): Promise<string> =>
 
 export function ImportSection() {
   const { user } = useAuth();
-  const { theme } = useWs();
+  const { theme, wsId, wsCfg } = useWs();
   const accent = theme.accent;
   const [files, setFiles] = useState<Files>({ clients: null, contacts: null, jobs: null });
   const [busy, setBusy] = useState(false);
@@ -19,24 +19,30 @@ export function ImportSection() {
 
   if (user?.role !== 'super_admin') return null;
 
+  // The importer targets the workspace you're currently viewing. "Combined" is
+  // a read-only view of both, so there's nothing single to import into.
+  const isCombined = wsId === 'combined';
+  const wsName = wsCfg.name;
+  const otherName = wsId === 'caddie' ? 'School Websites' : 'Caddie';
+
   const pick = (key: keyof Files) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFiles((f) => ({ ...f, [key]: e.target.files?.[0] || null }));
     setMsg(null);
   };
 
   const run = async () => {
-    if (busy) return;
+    if (busy || isCombined) return;
     if (!files.clients && !files.jobs) {
       setMsg({ ok: false, text: 'Choose at least the Clients or Jobs CSV.' });
       return;
     }
-    if (!confirm('This will PERMANENTLY DELETE all current School Websites clients, contacts and jobs, then load the uploaded spreadsheets in their place. Continue?')) return;
+    if (!confirm(`This will PERMANENTLY DELETE all current ${wsName} clients, contacts and jobs, then load the uploaded spreadsheets in their place. Continue?`)) return;
     setBusy(true); setMsg(null);
     try {
       const [clientsCsv, contactsCsv, jobsCsv] = await Promise.all([
         readText(files.clients), readText(files.contacts), readText(files.jobs),
       ]);
-      const r = await api.post('/import', { workspace: 'schoolwebsites', clientsCsv, contactsCsv, jobsCsv });
+      const r = await api.post('/import', { workspace: wsId, clientsCsv, contactsCsv, jobsCsv });
       const skips = [
         r.contactsSkipped ? `${r.contactsSkipped} contacts had no matching client` : '',
         r.jobsSkipped ? `${r.jobsSkipped} jobs had no client name` : '',
@@ -70,29 +76,38 @@ export function ImportSection() {
     <div style={{ maxWidth: 1000, marginTop: 16 }}>
       <div style={card}>
         <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid #EEF2F5' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#12222F' }}>Import data — School Websites</div>
-          <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 2 }}>Upload CSV exports to replace all School Websites clients, contacts &amp; jobs</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#12222F' }}>Import data — {isCombined ? 'select a workspace' : wsName}</div>
+          <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 2 }}>Upload CSV exports to replace all {isCombined ? 'clients, contacts & jobs in one workspace' : `${wsName} clients, contacts & jobs`}</div>
         </div>
         <div style={{ padding: '16px 22px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', borderRadius: 8, background: '#FEF6E7', border: '1px solid #F5E3BE', marginBottom: 14 }}>
-            <Icon name="triangle-alert" size={16} style={{ color: '#B7791F', flexShrink: 0, marginTop: 1 }} />
-            <div style={{ fontSize: 12.5, color: '#8A6516', lineHeight: 1.5 }}>
-              This <strong>deletes and replaces</strong> every current School Websites record. The Caddie workspace is not affected. Contacts are matched to clients by business name.
+          {isCombined ? (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', borderRadius: 8, background: '#EEF3F7', border: '1px solid #DCE6EE', fontSize: 12.5, color: '#4B5D6C', lineHeight: 1.5 }}>
+              <Icon name="info" size={16} style={{ color: accent, flexShrink: 0, marginTop: 1 }} />
+              <div>You're viewing the <strong>Combined</strong> workspace. Switch to a specific workspace (top-left) to import into it.</div>
             </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {filePicker('clients', 'Clients CSV', 'Business Name, Region, School Roll, Website…')}
-            {filePicker('contacts', 'Contacts CSV', 'First/Last Name, Email, Business Name… (optional)')}
-            {filePicker('jobs', 'Jobs CSV', 'Client Name, Job Type, Revenue, Hosting…')}
-          </div>
-          {msg && (
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: msg.ok ? '#2E7D6B' : '#C22F35', margin: '12px 2px 0' }}>{msg.text}</div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', borderRadius: 8, background: '#FEF6E7', border: '1px solid #F5E3BE', marginBottom: 14 }}>
+                <Icon name="triangle-alert" size={16} style={{ color: '#B7791F', flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 12.5, color: '#8A6516', lineHeight: 1.5 }}>
+                  This <strong>deletes and replaces</strong> every current {wsName} record. The {otherName} workspace is not affected. Contacts are matched to clients by business name.
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {filePicker('clients', 'Clients CSV', 'Business Name, Region, School Roll, Website…')}
+                {filePicker('contacts', 'Contacts CSV', 'First/Last Name, Email, Business Name… (optional)')}
+                {filePicker('jobs', 'Jobs CSV', 'Client Name, Job Type, Revenue, Hosting…')}
+              </div>
+              {msg && (
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: msg.ok ? '#2E7D6B' : '#C22F35', margin: '12px 2px 0' }}>{msg.text}</div>
+              )}
+              <div style={{ marginTop: 14 }}>
+                <button onClick={run} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 17px', border: 'none', borderRadius: 8, background: busy ? '#9AA8B4' : '#C22F35', color: '#fff', fontSize: 13, fontWeight: 700, cursor: busy ? 'default' : 'pointer' }}>
+                  <Icon name="database" size={16} />{busy ? 'Importing…' : `Replace ${wsName} data`}
+                </button>
+              </div>
+            </>
           )}
-          <div style={{ marginTop: 14 }}>
-            <button onClick={run} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 17px', border: 'none', borderRadius: 8, background: busy ? '#9AA8B4' : '#C22F35', color: '#fff', fontSize: 13, fontWeight: 700, cursor: busy ? 'default' : 'pointer' }}>
-              <Icon name="database" size={16} />{busy ? 'Importing…' : 'Replace School Websites data'}
-            </button>
-          </div>
         </div>
       </div>
     </div>

@@ -153,8 +153,9 @@ router.post('/', requireRole('super_admin'), async (req, res, next) => {
         region: clientRegionByName.get(client.toLowerCase()) || '',
         thisMonth: !!(dp && dp.month === now.month && dp.year === now.year),
         ws,
-        salesChannel: '',
-        referralPartner: '',
+        // Present in the Caddie export, absent in the School Websites one.
+        salesChannel: r['Sales Channel'] || '',
+        referralPartner: r['Referral Partner'] || '',
       };
     });
     const jobsSkipped = jobData.filter((j) => !j.client).length;
@@ -170,6 +171,13 @@ router.post('/', requireRole('super_admin'), async (req, res, next) => {
 
       if (clientData.length) await tx.client.createMany({ data: clientData });
       if (jobsToInsert.length) await tx.job.createMany({ data: jobsToInsert });
+
+      // Make sure any sales channels / referral partners referenced by the jobs
+      // exist in the settings lists (so they show in the dropdowns). Never removes.
+      const channels = [...new Set(jobsToInsert.map((j) => j.salesChannel).filter(Boolean))];
+      const partners = [...new Set(jobsToInsert.map((j) => j.referralPartner).filter(Boolean))];
+      if (channels.length) await tx.salesChannel.createMany({ data: channels.map((name, i) => ({ name, order: 100 + i })), skipDuplicates: true });
+      if (partners.length) await tx.referralPartner.createMany({ data: partners.map((name, i) => ({ name, order: 100 + i })), skipDuplicates: true });
 
       // Build a name -> clientId map for contacts (case-insensitive, first match wins).
       const created = await tx.client.findMany({ where: { ws }, select: { id: true, name: true } });

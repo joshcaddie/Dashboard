@@ -36,7 +36,9 @@ export function JobsView() {
   const q = store.jobSearch.trim().toLowerCase();
   let list = wsJobs.filter((j) => matchTab(j, tab));
   if (q) list = list.filter((j) => j.client.toLowerCase().includes(q) || j.jobType.toLowerCase().includes(q) || (j.region || '').toLowerCase().includes(q));
-  const revenue = list.reduce((a, b) => a + b.dev + b.host, 0);
+  const devTotal = list.reduce((a, b) => a + b.dev, 0);
+  const hostTotal = list.reduce((a, b) => a + b.host, 0);
+  const revenue = devTotal + hostTotal;
 
   return (
     <div style={{ maxWidth: 1360 }}>
@@ -92,6 +94,17 @@ export function JobsView() {
                 </div>
               </div>
             ))}
+            {list.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 12px', alignItems: 'center', padding: '13px 24px', borderTop: '2px solid #E6ECF1', background: '#FAFCFD' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#5A6B7A' }}>Totals · {list.length} {list.length === 1 ? 'job' : 'jobs'}</div>
+                <span /><span /><span />
+                <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#33475A', fontVariantNumeric: 'tabular-nums' }}>{money(devTotal)}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#33475A', fontVariantNumeric: 'tabular-nums', paddingLeft: 8 }}>{money(hostTotal)}</div>
+                <span />
+                <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 800, color: '#0F2233', fontVariantNumeric: 'tabular-nums' }}>{money(revenue)}</div>
+                <span />
+              </div>
+            )}
             {list.length === 0 && (
               <div style={{ padding: 56, textAlign: 'center', color: '#9AA8B4' }}><Icon name="briefcase" size={24} /><div style={{ fontSize: 14, fontWeight: 600, marginTop: 12 }}>No jobs here yet</div></div>
             )}
