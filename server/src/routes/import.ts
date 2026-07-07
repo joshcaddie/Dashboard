@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
-import { requireRole } from '../auth.js';
+import { requireRole, requireAuth } from '../auth.js';
 
 const router = Router();
 
@@ -280,6 +280,92 @@ router.post('/', requireRole('super_admin'), async (req, res, next) => {
     }
 
     res.json({ ok: true, workspace: ws, ...result });
+  } catch (e) { next(e); }
+});
+
+// ---- Mailing-list → contact matching (review-and-approve) ----
+const GENERIC_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'hotmail.co.nz', 'yahoo.com', 'yahoo.co.nz',
+  'xtra.co.nz', 'live.com', 'icloud.com', 'me.com', 'protonmail.com', 'inspire.net.nz', 'nowmail.co.nz',
+  'clear.net.nz', 'vodafone.co.nz', 'slingshot.co.nz', 'orcon.net.nz',
+]);
+const normName = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// POST /api/import/match-contacts { workspace, csv }
+// Parses a mailing-list export and proposes a client for each email (by website
+// domain, existing-contact domain, or a name/domain-root match). Read-only.
+router.post('/match-contacts', requireAuth, async (req, res, next) => {
+  try {
+    const ws = String(req.body?.workspace || 'schoolwebsites');
+    if (ws !== 'schoolwebsites' && ws !== 'caddie') return res.status(400).json({ error: 'Unknown workspace.' });
+    const recs = parseRecords(req.body?.csv || '');
+    if (!recs.length) return res.status(400).json({ error: 'No rows found in the CSV.' });
+
+    const clients = await prisma.client.findMany({ where: { ws }, include: { contacts: true } });
+    const byDomain = new Map<string, { id: number; name: string }>();
+    const existingEmails = new Set<string>();
+    const nameIndex = clients.map((c) => ({ norm: normName(c.name), c }));
+    for (const c of clients) {
+      const wd = cleanWebsite(c.website).toLowerCase();
+      if (wd && !byDomain.has(wd)) byDomain.set(wd, { id: c.id, name: c.name });
+      for (const ct of c.contacts) {
+        if (ct.email) existingEmails.add(ct.email.trim().toLowerCase());
+        const d = (ct.email || '').split('@')[1]?.toLowerCase();
+        if (d && !GENERIC_DOMAINS.has(d) && !byDomain.has(d)) byDomain.set(d, { id: c.id, name: c.name });
+      }
+    }
+    const findByKey = (key: string) => {
+      if (!key || key.length < 4) return null;
+      let hit = nameIndex.find((x) => x.norm === key);
+      if (!hit) hit = nameIndex.find((x) => x.norm.length >= 4 && (x.norm.includes(key) || key.includes(x.norm)));
+      return hit ? hit.c : null;
+    };
+
+    const proposals = recs.map((r) => {
+      const n = normalizeKeys(r);
+      const email = (n['email'] || '').trim().toLowerCase();
+      if (!email.includes('@')) return null;
+      const name = `${n['firstname'] || ''} ${n['lastname'] || ''}`.trim() || email.split('@')[0];
+      const domain = email.split('@')[1] || '';
+      const status = (n['globalstatus'] || n['liststatus'] || '').toLowerCase();
+      const unsub = status.includes('unsub');
+
+      if (existingEmails.has(email)) return { email, name, domain, unsub, status: 'exists', clientId: null, clientName: null };
+      let match = byDomain.get(domain);
+      if (!match) {
+        // Business domain → trust only the domain root (localpart is usually a
+        // first name and produces false matches). Generic domain (gmail etc.) →
+        // the localpart is often the business name, so try that.
+        const key = GENERIC_DOMAINS.has(domain) ? normName(email.split('@')[0]) : normName(domain.split('.')[0]);
+        const c = findByKey(key);
+        if (c) match = { id: c.id, name: c.name };
+      }
+      if (match) return { email, name, domain, unsub, status: 'match', clientId: match.id, clientName: match.name };
+      return { email, name, domain, unsub, status: 'nomatch', clientId: null, clientName: null };
+    }).filter(Boolean);
+
+    res.json({ workspace: ws, proposals });
+  } catch (e) { next(e); }
+});
+
+// POST /api/import/apply-contacts { items: [{ clientId, name, email }] }
+router.post('/apply-contacts', requireAuth, async (req, res, next) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    let added = 0, skipped = 0;
+    for (const it of items) {
+      const clientId = Number(it.clientId);
+      const email = String(it.email || '').trim();
+      const name = (String(it.name || '').trim()) || email.split('@')[0];
+      if (!clientId || !email.includes('@')) { skipped++; continue; }
+      const dupe = await prisma.contact.findFirst({ where: { clientId, email } });
+      if (dupe) { skipped++; continue; }
+      await prisma.contact.create({ data: { clientId, name, title: 'Contact', email, phone: '—' } });
+      added++;
+    }
+    // Keep the id sequence ahead of any inserts.
+    await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('"Contact"','id'), COALESCE((SELECT MAX(id) FROM "Contact"), 1))`);
+    res.json({ ok: true, added, skipped });
   } catch (e) { next(e); }
 });
 
