@@ -3,19 +3,62 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { useWs } from '../derive';
 import { Icon } from '../components/Icon';
+import type { Client } from '../types';
 
 interface Proposal {
   email: string; name: string; domain: string; unsub: boolean;
   status: 'match' | 'exists' | 'nomatch'; clientId: number | null; clientName: string | null;
 }
 
+// Rank clients by a query across name + website (prefix matches first).
+function rankClients(clients: Client[], q: string): Client[] {
+  const s = q.trim().toLowerCase();
+  if (!s) return [];
+  return clients
+    .map((c) => ({ c, hay: (c.name + ' ' + (c.website || '')).toLowerCase(), nm: c.name.toLowerCase() }))
+    .filter((x) => x.hay.includes(s))
+    .sort((a, b) => (a.nm.startsWith(s) ? 0 : 1) - (b.nm.startsWith(s) ? 0 : 1) || a.nm.localeCompare(b.nm))
+    .slice(0, 7)
+    .map((x) => x.c);
+}
+
+function ClientPicker({ clients, accent, onPick, onCancel }: { clients: Client[]; accent: string; onPick: (c: Client) => void; onCancel: () => void }) {
+  const [q, setQ] = useState('');
+  const results = rankClients(clients, q);
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search client…"
+          onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
+          style={{ flex: 1, minWidth: 0, padding: '6px 9px', border: `1px solid ${accent}`, borderRadius: 7, fontSize: 12.5, outline: 'none', boxShadow: `0 0 0 3px ${accent}22` }} />
+        <button onClick={onCancel} style={{ width: 26, height: 26, flexShrink: 0, borderRadius: 6, border: '1px solid #E1E8ED', background: '#fff', color: '#8695A2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="x" size={14} /></button>
+      </div>
+      {results.length > 0 && (
+        <div style={{ marginTop: 5, border: '1px solid #E6ECF1', borderRadius: 8, background: '#fff', boxShadow: '0 6px 16px -6px rgba(15,30,44,.28)', overflow: 'hidden' }}>
+          {results.map((c) => (
+            <div key={c.id} onClick={() => onPick(c)}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#F5F8FA')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
+              style={{ padding: '7px 10px', cursor: 'pointer' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1B2E3D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+              {c.website && <div style={{ fontSize: 11, color: '#9AA8B4' }}>{c.website}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {q.trim() && results.length === 0 && <div style={{ marginTop: 5, fontSize: 12, color: '#9AA8B4' }}>No clients found</div>}
+    </div>
+  );
+}
+
 export function ContactMatchSection() {
   const { user } = useAuth();
-  const { theme, wsId, wsCfg } = useWs();
+  const { theme, wsId, wsCfg, wsClients } = useWs();
   const accent = theme.accent;
   const [file, setFile] = useState<File | null>(null);
   const [proposals, setProposals] = useState<Proposal[] | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -38,6 +81,12 @@ export function ContactMatchSection() {
   };
 
   const toggle = (email: string) => setChecked((s) => { const n = new Set(s); n.has(email) ? n.delete(email) : n.add(email); return n; });
+  // Manually assign a client to a row (fixes a no-match or a wrong auto-match).
+  const assign = (email: string, c: Client) => {
+    setProposals((ps) => (ps || []).map((p) => (p.email === email ? { ...p, status: 'match', clientId: c.id, clientName: c.name } : p)));
+    setChecked((s) => new Set(s).add(email));
+    setPickerFor(null);
+  };
   const matchable = (proposals || []).filter((p) => p.status === 'match');
   const allChecked = matchable.length > 0 && matchable.every((p) => checked.has(p.email));
   const toggleAll = () => setChecked(allChecked ? new Set() : new Set(matchable.map((p) => p.email)));
@@ -118,16 +167,24 @@ export function ContactMatchSection() {
                   {proposals.map((p, i) => {
                     const on = checked.has(p.email);
                     const can = p.status === 'match';
+                    const picking = pickerFor === p.email;
                     return (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '34px 1.6fr 1.2fr 1.4fr', gap: '0 12px', padding: '9px 14px', borderTop: '1px solid #F1F4F7', alignItems: 'center', background: can && on ? '#F7FBF9' : '#fff', opacity: can ? 1 : 0.7 }}>
-                        <input type="checkbox" disabled={!can} checked={on && can} onChange={() => toggle(p.email)} style={{ cursor: can ? 'pointer' : 'default' }} />
+                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '34px 1.6fr 1.2fr 1.4fr', gap: '0 12px', padding: '9px 14px', borderTop: '1px solid #F1F4F7', alignItems: picking ? 'start' : 'center', background: can && on ? '#F7FBF9' : '#fff', opacity: can || picking || p.status === 'nomatch' ? 1 : 0.7 }}>
+                        <input type="checkbox" disabled={!can} checked={on && can} onChange={() => toggle(p.email)} style={{ marginTop: picking ? 6 : 0, cursor: can ? 'pointer' : 'default' }} />
                         <span style={{ fontSize: 12.5, color: '#33475A', wordBreak: 'break-all' }}>{p.email}{p.unsub && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#B07A17' }}>UNSUB</span>}</span>
                         <span style={{ fontSize: 12.5, color: '#4B5D6C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
-                        <span style={{ minWidth: 0 }}>
-                          {p.status === 'match' && <span style={{ fontSize: 13, fontWeight: 600, color: '#1B2E3D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{p.clientName}</span>}
-                          {p.status === 'exists' && badge('#EAF1F8', '#2B6CB0', 'Already a contact')}
-                          {p.status === 'nomatch' && badge('#F1F4F7', '#8695A2', 'No client match')}
-                        </span>
+                        <div style={{ minWidth: 0 }}>
+                          {p.status === 'exists' ? badge('#EAF1F8', '#2B6CB0', 'Already a contact')
+                            : picking ? <ClientPicker clients={wsClients} accent={accent} onPick={(c) => assign(p.email, c)} onCancel={() => setPickerFor(null)} />
+                            : p.status === 'match' ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#1B2E3D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.clientName}</span>
+                                <button onClick={() => setPickerFor(p.email)} style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 600, color: '#8695A2', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>change</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setPickerFor(p.email)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: accent, background: '#fff', border: `1px solid ${accent}55`, borderRadius: 7, padding: '5px 10px', cursor: 'pointer' }}><Icon name="search" size={13} />Assign client</button>
+                            )}
+                        </div>
                       </div>
                     );
                   })}
