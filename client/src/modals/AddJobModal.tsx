@@ -5,11 +5,13 @@ import { Modal, labelStyle } from '../components/Modal';
 import { Icon } from '../components/Icon';
 import { money, num, JOB_TYPE_OPTIONS, STATUS_OPTIONS, MONTH_OPTIONS, REGION_OPTIONS } from '../lib';
 
-export function AddJobModal({ onClose }: { onClose: () => void }) {
+export function AddJobModal({ onClose, initialClient }: { onClose: () => void; initialClient?: string }) {
   const store = useStore();
   const { theme, wsClients } = useWs();
   const accent = theme.accent, soft = theme.soft;
-  const [form, setForm] = useState({ client: '', jobType: 'Website', salesDate: '2026-07-06', status: 'Awaiting Brief', devRevenue: '', monthlyHosting: '', hostingMonth: 'August', region: 'Auckland', salesChannel: '', referralPartner: '' });
+  const preClient = wsClients.find((c) => c.name === initialClient);
+  const preRegion = preClient && REGION_OPTIONS.includes(preClient.region) ? preClient.region : 'Auckland';
+  const [form, setForm] = useState({ client: initialClient || '', jobType: 'Website', salesDate: '2026-07-06', status: 'Awaiting Brief', devRevenue: '', monthlyHosting: '', hostingMonth: 'August', region: preRegion, salesChannel: '', referralPartner: '' });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const fieldFocus = (e: any) => { e.target.style.borderColor = accent; e.target.style.boxShadow = `0 0 0 3px ${soft}`; };

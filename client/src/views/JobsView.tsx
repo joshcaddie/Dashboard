@@ -78,7 +78,7 @@ export function JobsView() {
           </div>
           <div style={{ flex: 1 }} />
           <span style={{ fontSize: 12.5, fontWeight: 600, color: '#8695A2' }}>{list.length} jobs · {money(revenue)}</span>
-          <button onClick={modals.openAddJob} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Icon name="plus" size={16} />Add job</button>
+          <button onClick={() => modals.openAddJob()} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><Icon name="plus" size={16} />Add job</button>
         </div>
 
         <div style={{ overflowX: 'auto' }}>

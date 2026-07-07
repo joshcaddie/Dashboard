@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { useWs } from '../derive';
 import { Icon } from '../components/Icon';
-import { money, statusStyle, JOB_TYPE_OPTIONS } from '../lib';
+import { money, JOB_TYPE_OPTIONS, STATUS_OPTIONS, MONTH_OPTIONS } from '../lib';
+
+const cellSelect = { width: '100%', padding: '6px 20px 6px 9px', border: '1px solid #E3E9EE', borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: '#fff', color: '#33475A', cursor: 'pointer', outline: 'none' } as const;
 
 const monthsOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', '—'];
 
@@ -13,7 +15,7 @@ export function ByMonthView() {
   const [byMonthFilter, setByMonthFilter] = useState('All');
   const [byMonthSearch, setByMonthSearch] = useState('');
 
-  const cols = '2fr 1.2fr 1.1fr 1fr 1fr';
+  const cols = '1.8fr 1.05fr 1.05fr 1fr .95fr .95fr';
   const activeJobs = wsJobs.filter((j) => j.status !== 'Cancelled');
   const bmMonthsPresent = monthsOrder.filter((mn) => activeJobs.some((j) => (j.hostingMonth || '—') === mn));
   const tabs = ['All', ...bmMonthsPresent];
@@ -52,9 +54,9 @@ export function ByMonthView() {
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <div style={{ minWidth: 820 }}>
+          <div style={{ minWidth: 940 }}>
             <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 14px', padding: '12px 24px', background: '#FAFCFD', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#93A1AD' }}>
-              <span>Client</span><span>Job type</span><span>Status</span><span>Renews</span><span style={{ textAlign: 'right' }}>Annual hosting</span>
+              <span>Client</span><span>Job type</span><span>Status</span><span>Renews</span><span>Monthly hosting</span><span style={{ textAlign: 'right' }}>Annual hosting</span>
             </div>
             {bmJobs.map((j) => (
               <div key={j.id} style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 14px', alignItems: 'center', padding: '9px 24px', borderTop: '1px solid #F1F4F7' }}>
@@ -62,9 +64,15 @@ export function ByMonthView() {
                   <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1B2E3D', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.client}</div>
                   <div style={{ fontSize: 11.5, color: '#9AA8B4' }}>{j.region || '—'}</div>
                 </div>
-                <div><select value={j.jobType} onChange={(e) => store.patchJob(j.id, { jobType: e.target.value })} style={{ width: '100%', padding: '6px 20px 6px 9px', border: '1px solid #E3E9EE', borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: '#fff', color: '#33475A', cursor: 'pointer', outline: 'none' }}>{JOB_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}</select></div>
-                <div><span style={statusStyle(j.status)}>{j.status}</span></div>
-                <div style={{ fontSize: 13, color: '#4B5D6C' }}>{j.hostingMonth || 'August'}</div>
+                <div><select value={j.jobType} onChange={(e) => store.patchJob(j.id, { jobType: e.target.value })} style={cellSelect}>{JOB_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}</select></div>
+                <div><select value={j.status} onChange={(e) => store.patchJob(j.id, { status: e.target.value })} style={cellSelect}>{STATUS_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}</select></div>
+                <div><select value={j.hostingMonth && j.hostingMonth !== '—' ? j.hostingMonth : 'August'} onChange={(e) => store.patchJob(j.id, { hostingMonth: e.target.value })} style={cellSelect}>{MONTH_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}</select></div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E3E9EE', borderRadius: 8, overflow: 'hidden' }}>
+                    <span style={{ padding: '6px 6px', background: '#F4F7F9', color: '#7A8894', fontSize: 11.5, fontWeight: 700 }}>$</span>
+                    <input value={j.host ? Math.round(j.host / 12) : ''} onChange={(e) => store.patchJob(j.id, { host: Math.round((parseFloat(String(e.target.value).replace(/[^0-9.]/g, '')) || 0) * 12) })} inputMode="numeric" placeholder="0" style={{ width: '100%', border: 'none', padding: '6px 8px', fontSize: 12.5, outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
+                  </div>
+                </div>
                 <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#0F2233', fontVariantNumeric: 'tabular-nums' }}>{j.host ? money(j.host) : '—'}</div>
               </div>
             ))}

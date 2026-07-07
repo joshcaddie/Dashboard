@@ -153,7 +153,10 @@ export function ClientDetailView() {
       <div style={{ background: '#fff', border: '1px solid #E6ECF1', borderRadius: 8, boxShadow: '0 1px 2px rgba(16,32,46,.04)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 10px', borderBottom: '1px solid #EEF2F5' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#12222F' }}>Client's jobs</div>
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: '#8695A2' }}>{cj.length} jobs</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: '#8695A2' }}>{cj.length} jobs</span>
+            <button onClick={() => modals.openAddJob(dcl.name)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}><Icon name="plus" size={15} />Add job</button>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}><div style={{ minWidth: 820 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.1fr .9fr .9fr .9fr 1fr', padding: '12px 24px', background: '#FAFCFD', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#93A1AD' }}>

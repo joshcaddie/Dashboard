@@ -145,7 +145,7 @@ export function htmlToText(html: string): string {
 
 export const JOB_TYPE_OPTIONS = ['Website', 'Newsletter', 'Newsletter ads', 'Custom App', 'Year Book', 'Chat Bot', 'Alumni', 'Google Ads', 'IUBenda', 'Hyper', 'SEO', 'CleanTalk', 'Other job'];
 export const STATUS_OPTIONS = ['Awaiting Brief', 'In Design', 'In Progress', 'Complete'];
-export const MONTH_OPTIONS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export const MONTH_OPTIONS = ['Monthly', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const REGION_OPTIONS = ['Auckland', 'Waikato', 'Bay of Plenty', 'Hawkes Bay', 'Wellington', 'Wairarapa', 'Canterbury', 'Otago', 'Southland', 'Northland'];
 export const ROLL_OPTIONS = ['1–50', '51–150', '151–300', '301–600', '600+'];
 export const BUSINESS_TYPE_OPTIONS = ['Primary School', 'Intermediate', 'Secondary School', 'Area School', 'Kura Kaupapa', 'Preschool', 'Business'];

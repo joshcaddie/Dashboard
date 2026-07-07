@@ -36,7 +36,7 @@ export function useWs(): WsView {
 
 // Derive an email address from a name + website domain, mirroring the prototype.
 export function deriveEmail(name: string, website: string): string {
-  const dom = (website || '').replace(/^www\./, '');
+  const dom = (website || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '').trim();
   if (name && name !== '—' && dom) return name.toLowerCase().split(' ')[0] + '@' + dom;
   return '—';
 }

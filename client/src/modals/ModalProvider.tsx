@@ -30,7 +30,7 @@ export interface EmailContext {
 
 interface Modals {
   openAddClient: () => void;
-  openAddJob: () => void;
+  openAddJob: (client?: string) => void;
   openAddLead: () => void;
   openConvert: (saleId: number) => void;
   openSalePanel: (saleId: number) => void;
@@ -48,6 +48,7 @@ export const useModals = () => {
 export function ModalProvider({ children }: { children: ReactNode }) {
   const [addClient, setAddClient] = useState(false);
   const [addJob, setAddJob] = useState(false);
+  const [addJobClient, setAddJobClient] = useState<string | undefined>(undefined);
   const [addLead, setAddLead] = useState(false);
   const [convertSaleId, setConvertSaleId] = useState<number | null>(null);
   const [salePanelId, setSalePanelId] = useState<number | null>(null);
@@ -57,7 +58,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
   const api = useMemo<Modals>(
     () => ({
       openAddClient: () => setAddClient(true),
-      openAddJob: () => setAddJob(true),
+      openAddJob: (client?: string) => { setAddJobClient(client); setAddJob(true); },
       openAddLead: () => setAddLead(true),
       openConvert: (id) => setConvertSaleId(id),
       openSalePanel: (id) => setSalePanelId(id),
@@ -71,7 +72,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={api}>
       {children}
       {addClient && <AddClientModal onClose={() => setAddClient(false)} />}
-      {addJob && <AddJobModal onClose={() => setAddJob(false)} />}
+      {addJob && <AddJobModal initialClient={addJobClient} onClose={() => setAddJob(false)} />}
       {addLead && <AddLeadModal onClose={() => setAddLead(false)} />}
       {convertSaleId != null && <ConvertModal saleId={convertSaleId} onClose={() => setConvertSaleId(null)} />}
       {salePanelId != null && <SalePanel saleId={salePanelId} onClose={() => setSalePanelId(null)} />}
