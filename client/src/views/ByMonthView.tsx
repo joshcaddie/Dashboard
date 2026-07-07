@@ -15,7 +15,7 @@ export function ByMonthView() {
   const [byMonthFilter, setByMonthFilter] = useState('All');
   const [byMonthSearch, setByMonthSearch] = useState('');
 
-  const cols = '1.8fr 1.05fr 1.05fr 1fr .95fr .95fr';
+  const cols = '1.8fr 1.05fr 1.05fr 1fr .95fr .95fr 44px';
   const activeJobs = wsJobs.filter((j) => j.status !== 'Cancelled');
   const bmMonthsPresent = monthsOrder.filter((mn) => activeJobs.some((j) => (j.hostingMonth || '—') === mn));
   const tabs = ['All', ...bmMonthsPresent];
@@ -54,9 +54,9 @@ export function ByMonthView() {
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <div style={{ minWidth: 940 }}>
+          <div style={{ minWidth: 990 }}>
             <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 14px', padding: '12px 24px', background: '#FAFCFD', fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#93A1AD' }}>
-              <span>Client</span><span>Job type</span><span>Status</span><span>Renews</span><span>Monthly hosting</span><span style={{ textAlign: 'right' }}>Annual hosting</span>
+              <span>Client</span><span>Job type</span><span>Status</span><span>Renews</span><span>Monthly hosting</span><span style={{ textAlign: 'right' }}>Annual hosting</span><span></span>
             </div>
             {bmJobs.map((j) => (
               <div key={j.id} style={{ display: 'grid', gridTemplateColumns: cols, gap: '0 14px', alignItems: 'center', padding: '9px 24px', borderTop: '1px solid #F1F4F7' }}>
@@ -74,6 +74,9 @@ export function ByMonthView() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#0F2233', fontVariantNumeric: 'tabular-nums' }}>{j.host ? money(j.host) : '—'}</div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button title="Delete" onClick={() => store.deleteJob(j.id)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #EEF1F4', background: '#fff', color: '#B6C1CB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="trash-2" size={15} /></button>
+                </div>
               </div>
             ))}
             {bmJobs.length === 0 && (
