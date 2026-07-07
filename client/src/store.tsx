@@ -78,6 +78,17 @@ interface Store {
   sendEmail: (opts: { kind: 'client' | 'sale'; refId: number; to: string; subject: string; body: string }) => Promise<void>;
 }
 
+// Persisted navigation state (survives page refreshes).
+const NAV_KEY = 'schoolhub.nav.v1';
+interface NavState {
+  view?: View; backView?: View; workspace?: Workspace;
+  selectedClientId?: number | null; selectedJobId?: number | null;
+  emailArchiveKind?: 'client' | 'sale'; emailArchiveSaleId?: number | null;
+}
+function loadNav(): NavState {
+  try { return JSON.parse(localStorage.getItem(NAV_KEY) || '{}') as NavState; } catch { return {}; }
+}
+
 const StoreCtx = createContext<Store | null>(null);
 export const useStore = () => {
   const s = useContext(StoreCtx);
@@ -97,13 +108,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [config, setConfig] = useState<DashboardConfig | null>(null);
 
-  const [view, setView] = useState<View>('dashboard');
-  const [backView, setBackView] = useState<View>('clients');
-  const [workspace, setWorkspaceState] = useState<Workspace>('schoolwebsites');
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
-  const [emailArchiveKind, setEmailArchiveKind] = useState<'client' | 'sale'>('client');
-  const [emailArchiveSaleId, setEmailArchiveSaleId] = useState<number | null>(null);
+  // Restore where the user was (workspace + view) across page refreshes.
+  const [nav0] = useState(loadNav);
+  const [view, setView] = useState<View>(nav0.view ?? 'dashboard');
+  const [backView, setBackView] = useState<View>(nav0.backView ?? 'clients');
+  const [workspace, setWorkspaceState] = useState<Workspace>(nav0.workspace ?? 'schoolwebsites');
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(nav0.selectedClientId ?? null);
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(nav0.selectedJobId ?? null);
+  const [emailArchiveKind, setEmailArchiveKind] = useState<'client' | 'sale'>(nav0.emailArchiveKind ?? 'client');
+  const [emailArchiveSaleId, setEmailArchiveSaleId] = useState<number | null>(nav0.emailArchiveSaleId ?? null);
   const [clientEmailFilter, setClientEmailFilter] = useState('All');
   const [clientSearch, setClientSearch] = useState('');
   const [jobSearch, setJobSearch] = useState('');
@@ -139,6 +152,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  // Persist navigation so a refresh lands on the same page/workspace.
+  useEffect(() => {
+    try {
+      localStorage.setItem(NAV_KEY, JSON.stringify({ view, backView, workspace, selectedClientId, selectedJobId, emailArchiveKind, emailArchiveSaleId }));
+    } catch { /* ignore quota/private-mode errors */ }
+  }, [view, backView, workspace, selectedClientId, selectedJobId, emailArchiveKind, emailArchiveSaleId]);
 
   const writeWs = () => (workspace === 'combined' ? 'schoolwebsites' : workspace);
 
