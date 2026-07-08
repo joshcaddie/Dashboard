@@ -442,8 +442,10 @@ router.post('/hosting-apply', requireRole('super_admin'), async (req, res, next)
         in7777: (cells[4] || '').trim(),
       };
       if (url) data.website = url;
+      // The CSV is authoritative for the secret: a value (re)sets it, a blank
+      // cell clears any stored value for that client.
       const pass = (cells[5] || '').trim();
-      if (pass) data.p777777 = encryptSecret(pass);
+      data.p777777 = pass ? encryptSecret(pass) : '';
       await prisma.client.update({ where: { id: clientId }, data });
       updated++;
     }
