@@ -91,7 +91,7 @@ function DomainPassword({ clientId, hasPass, accent, canManage }: { clientId: nu
   if (editing) {
     return (
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <input autoFocus type="text" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Domain password"
+        <input autoFocus type="text" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Value"
           onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(false); setDraft(''); } }}
           style={{ ...fieldBase, borderColor: accent, boxShadow: `0 0 0 3px ${accent}22`, fontFamily: 'ui-monospace, monospace' }} />
         <button onClick={save} disabled={busy} title="Save" style={{ ...iconBtn, borderColor: accent, color: accent }}><Icon name="check" size={15} /></button>
@@ -104,8 +104,8 @@ function DomainPassword({ clientId, hasPass, accent, canManage }: { clientId: nu
       <div style={{ ...fieldBase, display: 'flex', alignItems: 'center', fontFamily: shown !== null ? 'ui-monospace, monospace' : 'inherit', color: hasPass ? '#33475A' : '#9AA8B4', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
         {hasPass ? (shown !== null ? (shown || '(empty)') : '••••••••••') : 'Not set'}
       </div>
-      {hasPass && <button onClick={reveal} disabled={busy} title={shown !== null ? 'Hide' : 'Reveal'} style={iconBtn}><Icon name={shown !== null ? 'eye-off' : 'eye'} size={15} /></button>}
-      <button onClick={startEdit} disabled={busy} title={hasPass ? 'Change password' : 'Set password'} style={iconBtn}><Icon name={hasPass ? 'pencil' : 'plus'} size={15} /></button>
+      {hasPass && <button onClick={reveal} disabled={busy} title={shown !== null ? 'Hide' : 'Show'} style={iconBtn}><Icon name={shown !== null ? 'eye-off' : 'eye'} size={15} /></button>}
+      <button onClick={startEdit} disabled={busy} title={hasPass ? 'Edit' : 'Set'} style={iconBtn}><Icon name={hasPass ? 'pencil' : 'plus'} size={15} /></button>
     </div>
   );
 }
@@ -221,7 +221,7 @@ export function ClientDetailView() {
           <div><div style={label}>Where website is hosted</div><div style={{ marginTop: 5 }}><TextField value={dcl.websiteHost} onSave={(v) => set({ websiteHost: v })} accent={accent} placeholder="e.g. Scala" /></div></div>
           <div><div style={label}>Where domain is hosted</div><div style={{ marginTop: 5 }}><TextField value={dcl.domainHost} onSave={(v) => set({ domainHost: v })} accent={accent} placeholder="Registrar / IT provider" /></div></div>
           <div><div style={label}>Domain login (user / email)</div><div style={{ marginTop: 5 }}><TextField value={dcl.domainUser} onSave={(v) => set({ domainUser: v })} accent={accent} placeholder="username or email" /></div></div>
-          <div><div style={label}>Domain password <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: '#B6C1CB' }}>· encrypted</span></div><div style={{ marginTop: 5 }}><DomainPassword clientId={dcl.id} hasPass={dcl.hasDomainPass} accent={accent} canManage={isSuper} /></div></div>
+          <div><div style={label}>P777777</div><div style={{ marginTop: 5 }}><DomainPassword clientId={dcl.id} hasPass={dcl.hasDomainPass} accent={accent} canManage={isSuper} /></div></div>
         </div>
       </div>
 

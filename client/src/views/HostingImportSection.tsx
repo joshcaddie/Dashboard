@@ -97,7 +97,7 @@ export function HostingImportSection() {
     if (busy || !proposals) return;
     const items = proposals.filter((p) => p.clientId && checked.has(p.idx)).map((p) => ({ idx: p.idx, clientId: p.clientId }));
     if (!items.length) { setMsg({ ok: false, text: 'Nothing selected.' }); return; }
-    if (!confirm(`Apply hosting/domain info to ${items.length} Caddie client${items.length === 1 ? '' : 's'}? Passwords are encrypted.`)) return;
+    if (!confirm(`Apply hosting/domain info to ${items.length} Caddie client${items.length === 1 ? '' : 's'}? Sensitive values are encrypted.`)) return;
     setBusy(true); setMsg(null);
     try {
       const r = await api.post('/import/hosting-apply', { csv, items });
@@ -121,7 +121,7 @@ export function HostingImportSection() {
       <div style={card}>
         <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid #EEF2F5' }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#12222F' }}>Import hosting &amp; domain audit — Caddie Digital</div>
-          <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 2 }}>Upload the hosting CSV; approve the matched client for each row to fill in website host, domain host, and login. Passwords are encrypted at rest.</div>
+          <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 2 }}>Upload the hosting CSV; approve the matched client for each row to fill in website host, domain host, and login. Sensitive values are encrypted at rest.</div>
         </div>
         <div style={{ padding: '16px 22px' }}>
           {wsId !== 'caddie' ? (
@@ -180,7 +180,7 @@ export function HostingImportSection() {
                         </div>
                         <div style={{ minWidth: 0, fontSize: 12, color: '#4B5D6C', display: 'flex', alignItems: 'center', gap: 5 }}>
                           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.domainUser || '—'}</span>
-                          {p.hasPass && <Icon name="key-round" size={12} style={{ color: '#B08A2E', flexShrink: 0 }} />}
+                          {p.hasPass && <span title="Value present" style={{ width: 5, height: 5, borderRadius: 999, background: '#B6C1CB', flexShrink: 0 }} />}
                         </div>
                         <div style={{ minWidth: 0 }}>
                           {picking ? <ClientPicker clients={wsClients} accent={accent} onPick={(c) => assign(p.idx, c)} onCancel={() => setPickerFor(null)} />
