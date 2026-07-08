@@ -6,6 +6,7 @@ import { TeamSection } from './TeamSection';
 import { GmailSection } from './GmailSection';
 import { ImportSection } from './ImportSection';
 import { ContactMatchSection } from './ContactMatchSection';
+import { HostingImportSection } from './HostingImportSection';
 import { CleanupSection } from './CleanupSection';
 
 export function SettingsView() {
@@ -85,6 +86,7 @@ export function SettingsView() {
     <GmailSection />
     <ImportSection />
     <ContactMatchSection />
+    <HostingImportSection />
     <CleanupSection />
     </>
   );

@@ -22,6 +22,10 @@ export interface Client {
   notes: string;
   phone: string;
   email: string;
+  websiteHost: string;
+  domainHost: string;
+  domainUser: string;
+  hasDomainPass: boolean;
   lastContacted: string | null;
   contacts: Contact[];
 }

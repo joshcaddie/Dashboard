@@ -20,6 +20,10 @@ model Client {
   notes         String    @default("")
   phone         String    @default("")
   email         String    @default("")
+  websiteHost   String    @default("") // where the website is hosted (e.g. Scala)
+  domainHost    String    @default("") // where the domain / DNS is managed (registrar / IT)
+  domainUser    String    @default("") // domain login username or email
+  domainPassEnc String    @default("") // domain password, AES-256-GCM encrypted at rest
   lastContacted String? // display string, e.g. "Jul 6, 2026"
   contacts      Contact[]
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useStore } from '../store';
 import { useWs, deriveEmail } from '../derive';
+import { useAuth } from '../auth';
+import { api } from '../api';
 import { useModals } from '../modals/ModalProvider';
 import { Icon } from '../components/Icon';
 import { money, initials, avatarColors, clientTypeStyle, typeStyle, statusStyle, BUSINESS_TYPE_OPTIONS } from '../lib';
@@ -50,13 +52,73 @@ function AreaField({ value, onSave, accent, placeholder }: { value: string; onSa
   );
 }
 
+// Secure domain-password field. The plaintext is never held in the store — it
+// is fetched on demand (reveal) and written via a dedicated endpoint.
+function DomainPassword({ clientId, hasPass, accent, canManage }: { clientId: number; hasPass: boolean; accent: string; canManage: boolean }) {
+  const store = useStore();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [shown, setShown] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setEditing(false); setShown(null); setDraft(''); }, [clientId]);
+
+  const iconBtn = { width: 30, height: 30, flexShrink: 0, borderRadius: 7, border: '1px solid #E3E9EE', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A8894' } as const;
+
+  if (!canManage) {
+    return <div style={{ ...fieldBase, color: '#9AA8B4', display: 'flex', alignItems: 'center', gap: 8, background: '#F8FAFB' }}><Icon name="lock" size={13} />{hasPass ? 'Set — super admin only' : 'Not set'}</div>;
+  }
+
+  const reveal = async () => {
+    if (shown !== null) { setShown(null); return; }
+    setBusy(true);
+    try { const r = await api.get(`/clients/${clientId}/domain-secret`); setShown(r.password || ''); }
+    catch { setShown(''); } finally { setBusy(false); }
+  };
+  const startEdit = async () => {
+    let cur = '';
+    if (hasPass) { try { const r = await api.get(`/clients/${clientId}/domain-secret`); cur = r.password || ''; } catch { /* ignore */ } }
+    setDraft(cur); setEditing(true); setShown(null);
+  };
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api.put(`/clients/${clientId}/domain-secret`, { password: draft });
+      store.markDomainPass(clientId, !!draft.trim());
+      setEditing(false); setDraft('');
+    } finally { setBusy(false); }
+  };
+
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input autoFocus type="text" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Domain password"
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(false); setDraft(''); } }}
+          style={{ ...fieldBase, borderColor: accent, boxShadow: `0 0 0 3px ${accent}22`, fontFamily: 'ui-monospace, monospace' }} />
+        <button onClick={save} disabled={busy} title="Save" style={{ ...iconBtn, borderColor: accent, color: accent }}><Icon name="check" size={15} /></button>
+        <button onClick={() => { setEditing(false); setDraft(''); }} title="Cancel" style={iconBtn}><Icon name="x" size={15} /></button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div style={{ ...fieldBase, display: 'flex', alignItems: 'center', fontFamily: shown !== null ? 'ui-monospace, monospace' : 'inherit', color: hasPass ? '#33475A' : '#9AA8B4', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+        {hasPass ? (shown !== null ? (shown || '(empty)') : '••••••••••') : 'Not set'}
+      </div>
+      {hasPass && <button onClick={reveal} disabled={busy} title={shown !== null ? 'Hide' : 'Reveal'} style={iconBtn}><Icon name={shown !== null ? 'eye-off' : 'eye'} size={15} /></button>}
+      <button onClick={startEdit} disabled={busy} title={hasPass ? 'Change password' : 'Set password'} style={iconBtn}><Icon name={hasPass ? 'pencil' : 'plus'} size={15} /></button>
+    </div>
+  );
+}
+
 const label = { fontSize: 11.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#9AA8B4' } as const;
 
 export function ClientDetailView() {
   const store = useStore();
   const { theme } = useWs();
+  const { user } = useAuth();
   const modals = useModals();
   const accent = theme.accent, soft = theme.soft;
+  const isSuper = user?.role === 'super_admin';
 
   const dcl = store.clients.find((c) => c.id === store.selectedClientId);
   // Keep the editable name field local so a rename doesn't fight the input.
@@ -147,6 +209,19 @@ export function ClientDetailView() {
           ) : (
             <div style={{ padding: 34, textAlign: 'center', color: '#9AA8B4' }}><Icon name="user-x" size={26} /><div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 10 }}>No contacts yet</div></div>
           )}
+        </div>
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #E6ECF1', borderRadius: 8, padding: '15px 18px', boxShadow: '0 1px 2px rgba(16,32,46,.04)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#12222F' }}>Hosting &amp; domain</div>
+          <Icon name="shield" size={15} style={{ color: '#B6C1CB' }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '13px 16px', maxWidth: 760 }}>
+          <div><div style={label}>Where website is hosted</div><div style={{ marginTop: 5 }}><TextField value={dcl.websiteHost} onSave={(v) => set({ websiteHost: v })} accent={accent} placeholder="e.g. Scala" /></div></div>
+          <div><div style={label}>Where domain is hosted</div><div style={{ marginTop: 5 }}><TextField value={dcl.domainHost} onSave={(v) => set({ domainHost: v })} accent={accent} placeholder="Registrar / IT provider" /></div></div>
+          <div><div style={label}>Domain login (user / email)</div><div style={{ marginTop: 5 }}><TextField value={dcl.domainUser} onSave={(v) => set({ domainUser: v })} accent={accent} placeholder="username or email" /></div></div>
+          <div><div style={label}>Domain password <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600, color: '#B6C1CB' }}>· encrypted</span></div><div style={{ marginTop: 5 }}><DomainPassword clientId={dcl.id} hasPass={dcl.hasDomainPass} accent={accent} canManage={isSuper} /></div></div>
         </div>
       </div>
 

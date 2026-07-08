@@ -1,8 +1,16 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
 import { requireRole } from '../auth.js';
+import { encryptSecret, decryptSecret } from '../secrets.js';
 
 const router = Router();
+
+// Never send the encrypted domain password to the browser; expose only whether
+// one is set. The plaintext is available solely via the reveal endpoint below.
+function sanitizeClient<T extends { domainPassEnc?: string }>(c: T) {
+  const { domainPassEnc, ...rest } = c;
+  return { ...rest, hasDomainPass: !!domainPassEnc };
+}
 
 // List clients (with their extra contacts)
 router.get('/', async (_req, res) => {
@@ -10,7 +18,7 @@ router.get('/', async (_req, res) => {
     orderBy: { id: 'desc' },
     include: { contacts: { orderBy: { id: 'asc' } } },
   });
-  res.json(clients);
+  res.json(clients.map(sanitizeClient));
 });
 
 // GET /api/clients/no-jobs?ws=... — clients in a workspace with no job attached
@@ -53,7 +61,7 @@ router.post('/', async (req, res) => {
       notes: b.notes || '',
     },
   });
-  res.status(201).json(client);
+  res.status(201).json(sanitizeClient(client));
 });
 
 // Patch client (any editable field)
@@ -61,7 +69,7 @@ router.patch('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const b = req.body ?? {};
   const data: Record<string, unknown> = {};
-  for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted', 'phone', 'email']) {
+  for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted', 'phone', 'email', 'websiteHost', 'domainHost', 'domainUser']) {
     if (k in b) data[k] = b[k];
   }
   // Jobs link to a client by name — keep them attached if the name changes.
@@ -72,7 +80,23 @@ router.patch('/:id', async (req, res) => {
     }
   }
   const client = await prisma.client.update({ where: { id }, data });
-  res.json(client);
+  res.json(sanitizeClient(client));
+});
+
+// Reveal the decrypted domain password — super admin only, on demand.
+router.get('/:id/domain-secret', requireRole('super_admin'), async (req, res) => {
+  const id = Number(req.params.id);
+  const client = await prisma.client.findUnique({ where: { id }, select: { domainPassEnc: true } });
+  if (!client) return res.status(404).json({ error: 'Not found.' });
+  res.json({ password: decryptSecret(client.domainPassEnc) });
+});
+
+// Set / clear the domain password — super admin only. Stored encrypted at rest.
+router.put('/:id/domain-secret', requireRole('super_admin'), async (req, res) => {
+  const id = Number(req.params.id);
+  const pass = String(req.body?.password ?? '');
+  await prisma.client.update({ where: { id }, data: { domainPassEnc: pass ? encryptSecret(pass) : '' } });
+  res.json({ ok: true, hasDomainPass: !!pass });
 });
 
 router.delete('/:id', async (req, res) => {

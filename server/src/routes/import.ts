@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
 import { requireRole, requireAuth } from '../auth.js';
+import { encryptSecret } from '../secrets.js';
 
 const router = Router();
 
@@ -366,6 +367,87 @@ router.post('/apply-contacts', requireAuth, async (req, res, next) => {
     // Keep the id sequence ahead of any inserts.
     await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('"Contact"','id'), COALESCE((SELECT MAX(id) FROM "Contact"), 1))`);
     res.json({ ok: true, added, skipped });
+  } catch (e) { next(e); }
+});
+
+// ---- Caddie hosting / domain audit import (custom positional CSV) ----
+// Columns (no reliable header on col 0): name, url, websiteHost, domainHost,
+// domainUser, domainPass. Rows are matched to Caddie clients by name/website;
+// passwords are never returned to the browser — apply re-reads the CSV and
+// encrypts server-side, so the plaintext only ever lives in the user's own file.
+function hostingRows(csv: string): { idx: number; cells: string[] }[] {
+  return parseCsv(csv || '')
+    .map((cells, idx) => ({ idx, cells }))
+    .slice(1) // drop the header row
+    .filter((x) => (x.cells[0] || '').trim() !== '' || (x.cells[1] || '').trim() !== '');
+}
+
+router.post('/hosting-match', requireRole('super_admin'), async (req, res, next) => {
+  try {
+    const rows = hostingRows(req.body?.csv || '');
+    if (!rows.length) return res.status(400).json({ error: 'No rows found in the CSV.' });
+
+    const clients = await prisma.client.findMany({ where: { ws: 'caddie' } });
+    const nameIndex = clients.map((c) => ({ norm: normName(c.name), c }));
+    const byDomain = new Map<string, { id: number; name: string }>();
+    for (const c of clients) {
+      const wd = cleanWebsite(c.website).toLowerCase();
+      if (wd && !byDomain.has(wd)) byDomain.set(wd, { id: c.id, name: c.name });
+    }
+    const findByName = (raw: string) => {
+      const key = normName(raw);
+      if (!key || key.length < 3) return null;
+      let hit = nameIndex.find((x) => x.norm === key);
+      if (!hit) hit = nameIndex.find((x) => x.norm.length >= 4 && (x.norm.includes(key) || key.includes(x.norm)));
+      return hit ? hit.c : null;
+    };
+
+    const proposals = rows.map(({ idx, cells }) => {
+      const name = (cells[0] || '').trim();
+      const url = (cells[1] || '').trim();
+      let match: { id: number; name: string } | null = null;
+      const dom = cleanWebsite(url).toLowerCase();
+      if (dom && byDomain.has(dom)) match = byDomain.get(dom)!;
+      if (!match) { const c = findByName(name); if (c) match = { id: c.id, name: c.name }; }
+      return {
+        idx, name: name || url, url,
+        websiteHost: (cells[2] || '').trim(),
+        domainHost: (cells[3] || '').trim(),
+        domainUser: (cells[4] || '').trim(),
+        hasPass: (cells[5] || '').trim() !== '',
+        status: match ? 'match' : 'nomatch',
+        clientId: match?.id ?? null,
+        clientName: match?.name ?? null,
+      };
+    });
+    res.json({ proposals });
+  } catch (e) { next(e); }
+});
+
+// POST /api/import/hosting-apply { csv, items: [{ idx, clientId }] }
+router.post('/hosting-apply', requireRole('super_admin'), async (req, res, next) => {
+  try {
+    const rows = parseCsv(req.body?.csv || '');
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    let updated = 0, skipped = 0;
+    for (const it of items) {
+      const idx = Number(it.idx);
+      const clientId = Number(it.clientId);
+      const cells = rows[idx];
+      if (!clientId || !cells) { skipped++; continue; }
+      const url = (cells[1] || '').trim();
+      const data: Record<string, unknown> = {
+        websiteHost: (cells[2] || '').trim(),
+        domainHost: (cells[3] || '').trim(),
+        domainUser: (cells[4] || '').trim(),
+      };
+      if (url) data.website = url;
+      const pass = (cells[5] || '').trim();
+      if (pass) data.domainPassEnc = encryptSecret(pass);
+      await prisma.client.update({ where: { id: clientId }, data });
+      updated++;
+    }
+    res.json({ ok: true, updated, skipped });
   } catch (e) { next(e); }
 });
 

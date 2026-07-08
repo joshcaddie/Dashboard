@@ -54,6 +54,7 @@ interface Store {
   // actions
   addClient: (form: any) => Promise<void>;
   patchClient: (id: number, patch: Partial<Client>) => Promise<void>;
+  markDomainPass: (id: number, has: boolean) => void;
   deleteClient: (id: number) => Promise<void>;
   addContact: (clientId: number, form: any) => Promise<void>;
   patchContact: (clientId: number, contactId: number, patch: Partial<{ name: string; title: string; email: string; phone: string }>) => Promise<void>;
@@ -182,6 +183,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await api.patch('/clients/' + id, patch);
   };
+  // Reflect a domain-password set/clear locally (the secret itself is saved via
+  // its own endpoint and never held in the store).
+  const markDomainPass = (id: number, has: boolean) => {
+    setClients((cs) => cs.map((c) => (c.id === id ? { ...c, hasDomainPass: has } : c)));
+  };
   const deleteClient = async (id: number) => {
     await api.del('/clients/' + id);
     setClients((cs) => cs.filter((c) => c.id !== id));
@@ -308,7 +314,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     emailArchiveKind, emailArchiveSaleId, clientEmailFilter, setClientEmailFilter,
     openClient, openJob, openClientEmails, openSaleEmails, goBack,
     writeWs,
-    addClient, patchClient, deleteClient, addContact, patchContact, removeContact,
+    addClient, patchClient, markDomainPass, deleteClient, addContact, patchContact, removeContact,
     addJob, deleteJob, patchJob,
     addLead, setSaleStage, convertSale,
     addSaleNote, addSaleTask, toggleSaleTask, deleteSaleTask,
