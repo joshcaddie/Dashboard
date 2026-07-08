@@ -27,6 +27,10 @@ export interface Client {
   in7777: string;
   hasP7: boolean;
   lastContacted: string | null;
+  auditUrl: string; // Caddie Optimise shareable SEO report (set via webhook)
+  auditPdf: string;
+  auditScore: number | null;
+  auditAt: string;
   contacts: Contact[];
 }
 
@@ -70,6 +74,10 @@ export interface Sale {
   email: string;
   stage: string;
   ws: string;
+  auditUrl: string; // Caddie Optimise shareable SEO report (set via webhook)
+  auditPdf: string;
+  auditScore: number | null;
+  auditAt: string;
   notes: SaleNote[];
   tasks: SaleTask[];
 }

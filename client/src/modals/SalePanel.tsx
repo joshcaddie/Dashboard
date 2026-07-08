@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { useWs } from '../derive';
 import { Modal } from '../components/Modal';
 import { Icon } from '../components/Icon';
-import { fmtDue, TODAY } from '../lib';
+import { fmtDue, TODAY, caddieAuditLink } from '../lib';
 
 export function SalePanel({ saleId, onClose }: { saleId: number; onClose: () => void }) {
   const store = useStore();
@@ -41,6 +41,26 @@ export function SalePanel({ saleId, onClose }: { saleId: number; onClose: () => 
       footer={<button onClick={onClose} style={{ padding: '11px 20px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Done</button>}
     >
       <div style={{ padding: '17px 20px', display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '66vh', overflowY: 'auto' }}>
+        {/* SEO audit (Caddie Optimise) */}
+        <div>
+          <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#33475A', marginBottom: 8 }}>SEO audit (Caddie Optimise)</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '12px 14px', border: '1px solid #EEF2F5', borderRadius: 8, background: '#FAFCFD' }}>
+            {sale.auditUrl ? (
+              <>
+                <a href={sale.auditUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, fontWeight: 700, color: accent }}>📊 View SEO report</a>
+                {sale.auditScore != null && <span style={{ padding: '2px 10px', borderRadius: 999, background: '#DCFCE7', color: '#15803D', fontSize: 12, fontWeight: 700 }}>{sale.auditScore}/100</span>}
+                {sale.auditPdf && <a href={sale.auditPdf} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: '#6B7C8C' }}>PDF</a>}
+                {sale.auditAt && <span style={{ fontSize: 12, color: '#8695A2' }}>audited {sale.auditAt}</span>}
+              </>
+            ) : (
+              <span style={{ fontSize: 12.5, color: '#8695A2' }}>No SEO report yet — the link appears here once a report is generated.</span>
+            )}
+            <a
+              href={caddieAuditLink('sale', sale.id, sale.name)} target="_blank" rel="noopener noreferrer"
+              style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 12.5, fontWeight: 600, textDecoration: 'none', flexShrink: 0 }}
+            >📊 {sale.auditUrl ? 'Re-run audit' : 'Run audit report'}</a>
+          </div>
+        </div>
         {/* notes */}
         <div>
           <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#33475A', marginBottom: 8 }}>Notes</label>

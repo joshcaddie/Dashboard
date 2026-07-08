@@ -25,6 +25,10 @@ model Client {
   in7777        String    @default("") // (obscured) domain login username or email
   p777777       String    @default("") // (obscured) domain secret, AES-256-GCM encrypted at rest
   lastContacted String? // display string, e.g. "Jul 6, 2026"
+  auditUrl      String    @default("") // Caddie Optimise shareable SEO report (set via webhook)
+  auditPdf      String    @default("") // report PDF url
+  auditScore    Int? // overall SEO score at last report
+  auditAt       String    @default("") // display date of the last audit
   contacts      Contact[]
 }
 
@@ -65,6 +69,10 @@ model Sale {
   email     String     @default("")
   stage     String     @default("New")
   ws        String     @default("schoolwebsites")
+  auditUrl  String     @default("") // Caddie Optimise shareable SEO report (set via webhook)
+  auditPdf  String     @default("") // report PDF url
+  auditScore Int? // overall SEO score at last report
+  auditAt   String     @default("") // display date of the last audit
   notes     SaleNote[]
   tasks     SaleTask[]
 }

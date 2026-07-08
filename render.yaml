@@ -46,3 +46,7 @@ services:
       # Optional — fixed key for encrypting stored Gmail refresh tokens.
       - key: GMAIL_TOKEN_KEY
         sync: false
+      # Shared secret for the Caddie Optimise SEO-report webhook (must match
+      # CRM_WEBHOOK_SECRET on the caddie-optimise service).
+      - key: CADDIE_WEBHOOK_SECRET
+        sync: false

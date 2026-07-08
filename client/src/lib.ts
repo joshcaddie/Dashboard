@@ -151,3 +151,12 @@ export const ROLL_OPTIONS = ['1–50', '51–150', '151–300', '301–600', '60
 export const BUSINESS_TYPE_OPTIONS = ['Primary School', 'Intermediate', 'Secondary School', 'Area School', 'Kura Kaupapa', 'Preschool', 'Business'];
 export const SALE_STAGES = ['New', 'Contacted', 'Interested', 'Proposal', 'Won', 'Lost'];
 export const LEAD_CATEGORIES = ['Primary', 'Intermediate', 'Secondary', 'Composite / Area', 'Specialist / Other'];
+
+/* ---- Caddie Optimise (SEO audit) integration ---- */
+export const CADDIE_URL = 'https://caddie-optimise.onrender.com';
+/** Deep link that opens Caddie Optimise with a prefilled new-client form.
+ *  kind:id becomes the crmId Caddie sends back on its report webhook. */
+export function caddieAuditLink(kind: 'client' | 'sale', id: number, name: string, website?: string): string {
+  const domain = (website || '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+  return `${CADDIE_URL}/?newClient=1&name=${encodeURIComponent(name)}&domain=${encodeURIComponent(domain)}&crmId=${encodeURIComponent(`${kind}:${id}`)}`;
+}

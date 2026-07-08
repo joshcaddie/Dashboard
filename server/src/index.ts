@@ -16,6 +16,7 @@ import auth from './routes/auth.js';
 import users from './routes/users.js';
 import importData from './routes/import.js';
 import gmail from './routes/gmail.js';
+import integrations from './routes/integrations.js';
 import { attachUser, requireAuth, ensureSuperAdmin } from './auth.js';
 
 const app = express();
@@ -30,6 +31,9 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 // Public auth routes (login, forgot, reset, me).
 app.use('/api/auth', auth);
+
+// Server-to-server webhooks (gated by a shared secret inside the router).
+app.use('/api/integrations', integrations);
 
 // Everything below requires a signed-in user.
 app.use('/api/users', users); // (further gated to admin+ inside the router)

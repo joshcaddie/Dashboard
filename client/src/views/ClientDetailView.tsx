@@ -5,7 +5,7 @@ import { useAuth } from '../auth';
 import { api } from '../api';
 import { useModals } from '../modals/ModalProvider';
 import { Icon } from '../components/Icon';
-import { money, initials, avatarColors, clientTypeStyle, typeStyle, statusStyle, BUSINESS_TYPE_OPTIONS } from '../lib';
+import { money, initials, avatarColors, clientTypeStyle, typeStyle, statusStyle, BUSINESS_TYPE_OPTIONS, caddieAuditLink } from '../lib';
 
 const STATUS_OPTS = ['Client', 'Lead', 'Trial'];
 
@@ -180,6 +180,23 @@ export function ClientDetailView() {
             <div><div style={label}>Website</div><div style={{ marginTop: 5 }}><TextField value={dcl.website} onSave={(v) => set({ website: v })} accent={accent} placeholder="domain.school.nz" /></div></div>
             <div><div style={label}>Email</div><div style={{ marginTop: 5 }}><TextField value={dcl.email} onSave={(v) => set({ email: v })} accent={accent} placeholder={derivedEmail !== '—' ? derivedEmail : 'name@domain'} /></div></div>
             <div style={{ gridColumn: '1 / -1' }}><div style={label}>Notes</div><div style={{ marginTop: 5 }}><AreaField value={dcl.notes} onSave={(v) => set({ notes: v })} accent={accent} placeholder="Add a note…" /></div></div>
+            <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #EEF2F5', paddingTop: 12 }}>
+              <div style={label}>SEO audit (Caddie Optimise)</div>
+              {dcl.auditUrl ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 7 }}>
+                  <a href={dcl.auditUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, fontWeight: 700, color: accent }}>📊 View SEO report</a>
+                  {dcl.auditScore != null && <span style={{ padding: '2px 10px', borderRadius: 999, background: '#DCFCE7', color: '#15803D', fontSize: 12, fontWeight: 700 }}>{dcl.auditScore}/100</span>}
+                  {dcl.auditPdf && <a href={dcl.auditPdf} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: '#6B7C8C' }}>PDF</a>}
+                  {dcl.auditAt && <span style={{ fontSize: 12, color: '#8695A2' }}>audited {dcl.auditAt}</span>}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 6 }}>No SEO report yet — the link appears here automatically once a report is generated.</div>
+              )}
+              <a
+                href={caddieAuditLink('client', dcl.id, dcl.name, dcl.website)} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 9, padding: '7px 12px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: accent, textDecoration: 'none' }}
+              >📊 {dcl.auditUrl ? 'Re-run / update audit' : 'Run audit report'}</a>
+            </div>
           </div>
         </div>
 
