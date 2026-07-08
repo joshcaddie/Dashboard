@@ -5,11 +5,11 @@ import { encryptSecret, decryptSecret } from '../secrets.js';
 
 const router = Router();
 
-// Never send the encrypted domain password to the browser; expose only whether
-// one is set. The plaintext is available solely via the reveal endpoint below.
-function sanitizeClient<T extends { domainPassEnc?: string }>(c: T) {
-  const { domainPassEnc, ...rest } = c;
-  return { ...rest, hasDomainPass: !!domainPassEnc };
+// Never send the encrypted secret (p777777) to the browser; expose only whether
+// one is set (hasP7). The plaintext is available solely via the reveal endpoint.
+function sanitizeClient<T extends { p777777?: string }>(c: T) {
+  const { p777777, ...rest } = c;
+  return { ...rest, hasP7: !!p777777 };
 }
 
 // List clients (with their extra contacts)
@@ -69,7 +69,7 @@ router.patch('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const b = req.body ?? {};
   const data: Record<string, unknown> = {};
-  for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted', 'phone', 'email', 'websiteHost', 'domainHost', 'domainUser']) {
+  for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted', 'phone', 'email', 'websiteHost', 'domainHost', 'in7777']) {
     if (k in b) data[k] = b[k];
   }
   // Jobs link to a client by name — keep them attached if the name changes.
@@ -83,20 +83,20 @@ router.patch('/:id', async (req, res) => {
   res.json(sanitizeClient(client));
 });
 
-// Reveal the decrypted domain password — super admin only, on demand.
-router.get('/:id/domain-secret', requireRole('super_admin'), async (req, res) => {
+// Reveal the decrypted secret — super admin only, on demand.
+router.get('/:id/p7', requireRole('super_admin'), async (req, res) => {
   const id = Number(req.params.id);
-  const client = await prisma.client.findUnique({ where: { id }, select: { domainPassEnc: true } });
+  const client = await prisma.client.findUnique({ where: { id }, select: { p777777: true } });
   if (!client) return res.status(404).json({ error: 'Not found.' });
-  res.json({ password: decryptSecret(client.domainPassEnc) });
+  res.json({ value: decryptSecret(client.p777777) });
 });
 
-// Set / clear the domain password — super admin only. Stored encrypted at rest.
-router.put('/:id/domain-secret', requireRole('super_admin'), async (req, res) => {
+// Set / clear the secret — super admin only. Stored encrypted at rest.
+router.put('/:id/p7', requireRole('super_admin'), async (req, res) => {
   const id = Number(req.params.id);
-  const pass = String(req.body?.password ?? '');
-  await prisma.client.update({ where: { id }, data: { domainPassEnc: pass ? encryptSecret(pass) : '' } });
-  res.json({ ok: true, hasDomainPass: !!pass });
+  const val = String(req.body?.value ?? '');
+  await prisma.client.update({ where: { id }, data: { p777777: val ? encryptSecret(val) : '' } });
+  res.json({ ok: true, hasP7: !!val });
 });
 
 router.delete('/:id', async (req, res) => {

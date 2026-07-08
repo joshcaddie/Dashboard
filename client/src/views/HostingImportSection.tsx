@@ -7,7 +7,7 @@ import type { Client } from '../types';
 
 interface HProposal {
   idx: number; name: string; url: string;
-  websiteHost: string; domainHost: string; domainUser: string; hasPass: boolean;
+  websiteHost: string; domainHost: string; in7777: string; hasPass: boolean;
   status: 'match' | 'nomatch'; clientId: number | null; clientName: string | null;
 }
 
@@ -179,7 +179,7 @@ export function HostingImportSection() {
                           <div style={{ fontSize: 11, color: '#9AA8B4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.domainHost || '—'}</div>
                         </div>
                         <div style={{ minWidth: 0, fontSize: 12, color: '#4B5D6C', display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.domainUser || '—'}</span>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.in7777 || '—'}</span>
                           {p.hasPass && <span title="Value present" style={{ width: 5, height: 5, borderRadius: 999, background: '#B6C1CB', flexShrink: 0 }} />}
                         </div>
                         <div style={{ minWidth: 0 }}>

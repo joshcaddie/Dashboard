@@ -183,10 +183,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     await api.patch('/clients/' + id, patch);
   };
-  // Reflect a domain-password set/clear locally (the secret itself is saved via
-  // its own endpoint and never held in the store).
+  // Reflect a secret set/clear locally (the value itself is saved via its own
+  // endpoint and never held in the store).
   const markDomainPass = (id: number, has: boolean) => {
-    setClients((cs) => cs.map((c) => (c.id === id ? { ...c, hasDomainPass: has } : c)));
+    setClients((cs) => cs.map((c) => (c.id === id ? { ...c, hasP7: has } : c)));
   };
   const deleteClient = async (id: number) => {
     await api.del('/clients/' + id);

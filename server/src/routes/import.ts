@@ -413,7 +413,7 @@ router.post('/hosting-match', requireRole('super_admin'), async (req, res, next)
         idx, name: name || url, url,
         websiteHost: (cells[2] || '').trim(),
         domainHost: (cells[3] || '').trim(),
-        domainUser: (cells[4] || '').trim(),
+        in7777: (cells[4] || '').trim(),
         hasPass: (cells[5] || '').trim() !== '',
         status: match ? 'match' : 'nomatch',
         clientId: match?.id ?? null,
@@ -439,11 +439,11 @@ router.post('/hosting-apply', requireRole('super_admin'), async (req, res, next)
       const data: Record<string, unknown> = {
         websiteHost: (cells[2] || '').trim(),
         domainHost: (cells[3] || '').trim(),
-        domainUser: (cells[4] || '').trim(),
+        in7777: (cells[4] || '').trim(),
       };
       if (url) data.website = url;
       const pass = (cells[5] || '').trim();
-      if (pass) data.domainPassEnc = encryptSecret(pass);
+      if (pass) data.p777777 = encryptSecret(pass);
       await prisma.client.update({ where: { id: clientId }, data });
       updated++;
     }

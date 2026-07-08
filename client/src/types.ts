@@ -24,8 +24,8 @@ export interface Client {
   email: string;
   websiteHost: string;
   domainHost: string;
-  domainUser: string;
-  hasDomainPass: boolean;
+  in7777: string;
+  hasP7: boolean;
   lastContacted: string | null;
   contacts: Contact[];
 }

@@ -71,18 +71,18 @@ function DomainPassword({ clientId, hasPass, accent, canManage }: { clientId: nu
   const reveal = async () => {
     if (shown !== null) { setShown(null); return; }
     setBusy(true);
-    try { const r = await api.get(`/clients/${clientId}/domain-secret`); setShown(r.password || ''); }
+    try { const r = await api.get(`/clients/${clientId}/p7`); setShown(r.value || ''); }
     catch { setShown(''); } finally { setBusy(false); }
   };
   const startEdit = async () => {
     let cur = '';
-    if (hasPass) { try { const r = await api.get(`/clients/${clientId}/domain-secret`); cur = r.password || ''; } catch { /* ignore */ } }
+    if (hasPass) { try { const r = await api.get(`/clients/${clientId}/p7`); cur = r.value || ''; } catch { /* ignore */ } }
     setDraft(cur); setEditing(true); setShown(null);
   };
   const save = async () => {
     setBusy(true);
     try {
-      await api.put(`/clients/${clientId}/domain-secret`, { password: draft });
+      await api.put(`/clients/${clientId}/p7`, { value: draft });
       store.markDomainPass(clientId, !!draft.trim());
       setEditing(false); setDraft('');
     } finally { setBusy(false); }
@@ -220,8 +220,8 @@ export function ClientDetailView() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '13px 16px', maxWidth: 760 }}>
           <div><div style={label}>Where website is hosted</div><div style={{ marginTop: 5 }}><TextField value={dcl.websiteHost} onSave={(v) => set({ websiteHost: v })} accent={accent} placeholder="e.g. Scala" /></div></div>
           <div><div style={label}>Where domain is hosted</div><div style={{ marginTop: 5 }}><TextField value={dcl.domainHost} onSave={(v) => set({ domainHost: v })} accent={accent} placeholder="Registrar / IT provider" /></div></div>
-          <div><div style={label}>Domain login (user / email)</div><div style={{ marginTop: 5 }}><TextField value={dcl.domainUser} onSave={(v) => set({ domainUser: v })} accent={accent} placeholder="username or email" /></div></div>
-          <div><div style={label}>P777777</div><div style={{ marginTop: 5 }}><DomainPassword clientId={dcl.id} hasPass={dcl.hasDomainPass} accent={accent} canManage={isSuper} /></div></div>
+          <div><div style={label}>in7777</div><div style={{ marginTop: 5 }}><TextField value={dcl.in7777} onSave={(v) => set({ in7777: v })} accent={accent} placeholder="—" /></div></div>
+          <div><div style={label}>P777777</div><div style={{ marginTop: 5 }}><DomainPassword clientId={dcl.id} hasPass={dcl.hasP7} accent={accent} canManage={isSuper} /></div></div>
         </div>
       </div>
 
