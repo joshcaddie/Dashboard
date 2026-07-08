@@ -6,6 +6,7 @@ import { api } from '../api';
 import { useModals } from '../modals/ModalProvider';
 import { Icon } from '../components/Icon';
 import { money, initials, avatarColors, clientTypeStyle, typeStyle, statusStyle, BUSINESS_TYPE_OPTIONS, caddieAuditLink } from '../lib';
+import { clientEmailContext } from '../emailCtx';
 
 const STATUS_OPTS = ['Client', 'Lead', 'Trial'];
 
@@ -123,8 +124,25 @@ export function ClientDetailView() {
   const dcl = store.clients.find((c) => c.id === store.selectedClientId);
   // Keep the editable name field local so a rename doesn't fight the input.
   const [name, setName] = useState(dcl?.name ?? '');
+  const [draftingEmail, setDraftingEmail] = useState(false);
   useEffect(() => { setName(dcl?.name ?? ''); }, [dcl?.id, dcl?.name]);
   if (!dcl) return null;
+
+  // Draft the proposal outreach email (AI, grounded in the report) and open it
+  // in the normal send-email modal for review before sending.
+  const emailProposal = async () => {
+    const v = window.prompt('Video link to include (optional — leave blank to skip):');
+    if (v === null) return; // cancelled
+    setDraftingEmail(true);
+    try {
+      const out = await api.post('/ai/proposal-email', { kind: 'client', refId: dcl.id, videoUrl: v.trim() });
+      modals.openEmail({ ...clientEmailContext(dcl), prefill: { subject: out.subject || '', body: out.body || '' } });
+    } catch (e: any) {
+      alert(e?.message || 'Could not draft the email.');
+    } finally {
+      setDraftingEmail(false);
+    }
+  };
 
   const set = (patch: Partial<typeof dcl>) => store.patchClient(dcl.id, patch);
 
@@ -196,6 +214,11 @@ export function ClientDetailView() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 7 }}>
                   <a href={dcl.proposalUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, fontWeight: 700, color: accent }}>📝 Client proposal (PDF)</a>
                   {dcl.proposalAt && <span style={{ fontSize: 12, color: '#8695A2' }}>generated {dcl.proposalAt}</span>}
+                  <button
+                    onClick={emailProposal} disabled={draftingEmail}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, color: accent, cursor: draftingEmail ? 'default' : 'pointer', opacity: draftingEmail ? 0.6 : 1 }}
+                    title="AI-draft the outreach email (grounded in the report) and review before sending"
+                  >✉️ {draftingEmail ? 'Drafting…' : 'Email proposal'}</button>
                 </div>
               )}
               <a

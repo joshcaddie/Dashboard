@@ -4,17 +4,36 @@ import { useWs } from '../derive';
 import { Modal } from '../components/Modal';
 import { Icon } from '../components/Icon';
 import { fmtDue, TODAY, caddieAuditLink } from '../lib';
+import { api } from '../api';
+import { saleEmailContext } from '../emailCtx';
+import { useModals } from './ModalProvider';
 
 export function SalePanel({ saleId, onClose }: { saleId: number; onClose: () => void }) {
   const store = useStore();
+  const modals = useModals();
   const { theme } = useWs();
   const accent = theme.accent, soft = theme.soft;
   const sale = store.sales.find((s) => s.id === saleId);
   const [noteDraft, setNoteDraft] = useState('');
   const [taskText, setTaskText] = useState('');
   const [taskDue, setTaskDue] = useState('');
+  const [draftingEmail, setDraftingEmail] = useState(false);
 
   if (!sale) return null;
+
+  const emailProposal = async () => {
+    const v = window.prompt('Video link to include (optional — leave blank to skip):');
+    if (v === null) return; // cancelled
+    setDraftingEmail(true);
+    try {
+      const out = await api.post('/ai/proposal-email', { kind: 'sale', refId: sale.id, videoUrl: v.trim() });
+      modals.openEmail({ ...saleEmailContext(sale), prefill: { subject: out.subject || '', body: out.body || '' } });
+    } catch (e: any) {
+      alert(e?.message || 'Could not draft the email.');
+    } finally {
+      setDraftingEmail(false);
+    }
+  };
 
   const addNote = async () => {
     if (!noteDraft.trim()) return;
@@ -52,6 +71,13 @@ export function SalePanel({ saleId, onClose }: { saleId: number; onClose: () => 
                 {sale.auditPdf && <a href={sale.auditPdf} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: '#6B7C8C' }}>PDF</a>}
                 {sale.auditAt && <span style={{ fontSize: 12, color: '#8695A2' }}>audited {sale.auditAt}</span>}
                 {sale.proposalUrl && <a href={sale.proposalUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 700, color: accent }}>📝 Proposal{sale.proposalAt ? ` (${sale.proposalAt})` : ''}</a>}
+                {sale.proposalUrl && (
+                  <button
+                    onClick={emailProposal} disabled={draftingEmail}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, color: accent, cursor: draftingEmail ? 'default' : 'pointer', opacity: draftingEmail ? 0.6 : 1 }}
+                    title="AI-draft the outreach email (grounded in the report) and review before sending"
+                  >✉️ {draftingEmail ? 'Drafting…' : 'Email proposal'}</button>
+                )}
               </>
             ) : (
               <span style={{ fontSize: 12.5, color: '#8695A2' }}>No SEO report yet — the link appears here once a report is generated.</span>

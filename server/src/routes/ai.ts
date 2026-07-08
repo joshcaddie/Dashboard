@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { prisma } from '../db.js';
 
 const router = Router();
 
@@ -119,6 +120,92 @@ router.post('/report-email', async (req, res) => {
     `If you'd like to talk through anything in the report, just reply here or let me know a good time for a quick call.\n\n` +
     `Ngā mihi,\nJosh\nCaddie Digital`;
   return res.json({ subject, body, source: 'fallback' });
+});
+
+// POST /api/ai/proposal-email  { kind: 'client'|'sale', refId, videoUrl? }
+// Drafts the SEO-proposal outreach email for a record whose Caddie Optimise
+// report + proposal links are on file. Grounds the "short version" paragraph
+// in the actual report by fetching the public share page. Real details are
+// written in directly (no merge tokens).
+router.post('/proposal-email', async (req, res) => {
+  const b = req.body ?? {};
+  const kind: 'client' | 'sale' = b.kind === 'sale' ? 'sale' : 'client';
+  const refId = Number(b.refId);
+  const videoUrl = typeof b.videoUrl === 'string' && /^https?:\/\//.test(b.videoUrl.trim()) ? b.videoUrl.trim() : '';
+
+  const rec = kind === 'client'
+    ? await prisma.client.findUnique({ where: { id: refId } })
+    : await prisma.sale.findUnique({ where: { id: refId } });
+  if (!rec) return res.status(404).json({ error: 'Record not found.' });
+  if (!rec.proposalUrl) return res.status(400).json({ error: 'No proposal on this record yet — generate one in Caddie Optimise first.' });
+
+  const businessName = rec.name;
+  const contactFull = kind === 'client' ? (rec as any).contact : (rec as any).principal;
+  const firstName = (String(contactFull || '').trim().split(/\s+/)[0] || '').replace(/^—$/, '') || 'there';
+
+  // Ground the email in the real report: fetch the public share page and strip it to text.
+  let reportText = '';
+  if (rec.auditUrl) {
+    try {
+      const r = await fetch(rec.auditUrl, { signal: AbortSignal.timeout(15_000) });
+      if (r.ok) {
+        reportText = (await r.text())
+          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .slice(0, 7000);
+      }
+    } catch { /* draft still works from score alone */ }
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (apiKey) {
+    try {
+      const system =
+        'You write short, warm, zero-pressure outreach emails from Josh at Caddie Digital sharing an SEO audit + proposal ' +
+        'with a business owner. Reply with ONLY strict minified JSON: {"subject":"...","body":"..."} and nothing else. ' +
+        'Body is plain text with \\n line breaks (no HTML, no markdown). Ground every specific claim in the supplied report text — never invent numbers.';
+      const user =
+        `Write the email following this exact structure and tone (vary the wording naturally, keep it this casual and low-pressure):\n` +
+        `1. Greeting: "Hi ${firstName},"\n` +
+        `2. Short opener: hope they're well; you ran an SEO audit on the ${businessName} website recently — "just something I do from time to time for clients and businesses I think could benefit" — and wanted to share what came up.\n` +
+        `3. "The short version:" one tight paragraph — the genuine strengths first (use real numbers from the report), then the core problem/opportunity in plain words (real numbers again).\n` +
+        (videoUrl
+          ? `4. Video paragraph: "I've recorded a 5 minute video here walking through the suggestions" then on its own line "Watch the video here: ${videoUrl}"\n`
+          : '') +
+        `${videoUrl ? '5' : '4'}. Proposal paragraph: you've put together a proposal covering all of this with a suggested scope and price; have a read when they get a chance; no pressure at all, just flagging real opportunities. Then the link on its own line: ${rec.proposalUrl}\n` +
+        `${videoUrl ? '6' : '5'}. "Happy to jump on a call if useful."\n` +
+        `${videoUrl ? '7' : '6'}. Sign off: "Cheers,\\nJosh"\n\n` +
+        `Subject: short and personal, e.g. a few things I spotted on the ${businessName} website (write your own).\n` +
+        (rec.auditScore != null ? `Overall audit score: ${rec.auditScore}/100.\n` : '') +
+        (reportText ? `\nReport text to ground the facts in:\n${reportText}` : '\nNo report text available — keep the short version general (no invented numbers).');
+
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey });
+      const resp = await client.messages.create({
+        model: 'claude-opus-4-8', max_tokens: 1200, system,
+        messages: [{ role: 'user', content: user }],
+      });
+      const text = resp.content.filter((c) => c.type === 'text').map((c: any) => c.text).join('');
+      const parsed = extractJson(text);
+      if (parsed.body) return res.json({ subject: parsed.subject || `A few things I spotted on the ${businessName} website`, body: parsed.body, source: 'anthropic' });
+    } catch (e) {
+      console.error('AI proposal-email generation failed, using fallback:', e);
+    }
+  }
+
+  // Fallback: the example skeleton with what we know filled in.
+  const body =
+    `Hi ${firstName},\n\n` +
+    `Hope you're keeping well. I ran an SEO audit on the ${businessName} website recently, just something I do from time to time for clients and businesses I think could benefit, and wanted to share what came up.\n\n` +
+    (rec.auditScore != null
+      ? `The short version: there's a solid foundation to work with, and the site scored ${rec.auditScore}/100 overall — with some clear, practical opportunities to win more of the searches you should be showing up for.\n\n`
+      : `The short version: there's a solid foundation to work with, and some clear, practical opportunities to win more of the searches you should be showing up for.\n\n`) +
+    (videoUrl ? `I've recorded a 5 minute video here walking through the suggestions\nWatch the video here: ${videoUrl}\n\n` : '') +
+    `I've put together a proposal covering all of this with a suggested scope and price. Have a read when you get a chance. No pressure at all, just flagging some real opportunities I noticed.\n${rec.proposalUrl}\n\n` +
+    `Happy to jump on a call if useful.\n\nCheers,\nJosh`;
+  return res.json({ subject: `A few things I spotted on the ${businessName} website`, body, source: 'fallback' });
 });
 
 function extractJson(raw: string): { subject?: string; body?: string } {

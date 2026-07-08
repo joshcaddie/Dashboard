@@ -26,6 +26,7 @@ export interface EmailContext {
   };
   toLine: string; // header display name
   recipients: EmailRecipient[];
+  prefill?: { subject: string; body: string }; // pre-drafted email (e.g. AI proposal outreach)
 }
 
 interface Modals {

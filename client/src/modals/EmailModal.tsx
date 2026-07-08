@@ -17,8 +17,8 @@ export function EmailModal({ ctx, onClose }: { ctx: EmailContext; onClose: () =>
 
   const [emailTo, setEmailTo] = useState(ctx.recipients[0]?.email || '');
   const [templateId, setTemplateId] = useState('');
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
+  const [subject, setSubject] = useState(ctx.prefill?.subject || '');
+  const [body, setBody] = useState(ctx.prefill?.body || '');
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
