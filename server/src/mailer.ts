@@ -23,7 +23,9 @@ export function authSender(): Sender {
   };
 }
 
-export async function smtp2goSend(apiKey: string, opts: { sender: string; to: string; subject: string; text: string; html?: string }) {
+export interface Attachment { filename: string; mimetype: string; base64: string }
+
+export async function smtp2goSend(apiKey: string, opts: { sender: string; to: string; subject: string; text: string; html?: string; attachments?: Attachment[] }) {
   const body: Record<string, unknown> = {
     sender: opts.sender,
     to: [opts.to],
@@ -31,6 +33,9 @@ export async function smtp2goSend(apiKey: string, opts: { sender: string; to: st
     text_body: opts.text,
   };
   if (opts.html) body.html_body = opts.html;
+  if (opts.attachments?.length) {
+    body.attachments = opts.attachments.map((a) => ({ filename: a.filename, fileblob: a.base64, mimetype: a.mimetype }));
+  }
   const r = await fetch('https://api.smtp2go.com/v3/email/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Smtp2go-Api-Key': apiKey },
@@ -45,7 +50,7 @@ export async function smtp2goSend(apiKey: string, opts: { sender: string; to: st
   return j?.data?.email_id as string | undefined;
 }
 
-export async function sendMail(sender: Sender, opts: { to: string; subject: string; text: string; html?: string }) {
+export async function sendMail(sender: Sender, opts: { to: string; subject: string; text: string; html?: string; attachments?: Attachment[] }) {
   if (!sender.apiKey) throw new Error(`Email sending isn't configured (${sender.name}).`);
   return smtp2goSend(sender.apiKey, { sender: `${sender.name} <${sender.from}>`, ...opts });
 }

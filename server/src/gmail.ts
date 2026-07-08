@@ -253,17 +253,47 @@ function encodeHeader(v: string): string {
   return '=?UTF-8?B?' + Buffer.from(v, 'utf8').toString('base64') + '?=';
 }
 
-export async function sendMessage(ws: string, opts: { from: string; to: string; subject: string; text: string }): Promise<string> {
-  const mime = [
-    `From: ${opts.from}`,
-    `To: ${opts.to}`,
-    `Subject: ${encodeHeader(opts.subject)}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset="UTF-8"',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    opts.text,
-  ].join('\r\n');
+export async function sendMessage(ws: string, opts: { from: string; to: string; subject: string; text: string; attachments?: { filename: string; mimetype: string; base64: string }[] }): Promise<string> {
+  let mime: string;
+  if (opts.attachments?.length) {
+    const boundary = 'mixed_' + Buffer.from(opts.subject + opts.to).toString('hex').slice(0, 16);
+    const parts: string[] = [
+      `From: ${opts.from}`,
+      `To: ${opts.to}`,
+      `Subject: ${encodeHeader(opts.subject)}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      opts.text,
+    ];
+    for (const a of opts.attachments) {
+      parts.push(
+        `--${boundary}`,
+        `Content-Type: ${a.mimetype}; name="${a.filename}"`,
+        'Content-Transfer-Encoding: base64',
+        `Content-Disposition: attachment; filename="${a.filename}"`,
+        '',
+        a.base64.replace(/(.{76})/g, '$1\r\n'),
+      );
+    }
+    parts.push(`--${boundary}--`, '');
+    mime = parts.join('\r\n');
+  } else {
+    mime = [
+      `From: ${opts.from}`,
+      `To: ${opts.to}`,
+      `Subject: ${encodeHeader(opts.subject)}`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      opts.text,
+    ].join('\r\n');
+  }
   const raw = Buffer.from(mime, 'utf8').toString('base64url');
   const j = await gapi(ws, 'messages/send', {
     method: 'POST',

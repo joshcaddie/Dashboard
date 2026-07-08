@@ -24,12 +24,35 @@ model Client {
   domainHost    String    @default("") // where the domain / DNS is managed (registrar / IT)
   in7777        String    @default("") // (obscured) domain login username or email
   p777777       String    @default("") // (obscured) domain secret, AES-256-GCM encrypted at rest
+  adSpend       Int       @default(0) // Google Ads: monthly ad spend
+  mgmtFee       Int       @default(0) // Google Ads: monthly management fee
   lastContacted String? // display string, e.g. "Jul 6, 2026"
   auditUrl      String    @default("") // Caddie Optimise shareable SEO report (set via webhook)
   auditPdf      String    @default("") // report PDF url
   auditScore    Int? // overall SEO score at last report
   auditAt       String    @default("") // display date of the last audit
   contacts      Contact[]
+}
+
+// Google Ads: dated notes attached to a client's ad account.
+model AdNote {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  date      String   @default("") // display date, e.g. "Jul 8, 2026"
+  text      String   @default("")
+  createdAt DateTime @default(now())
+}
+
+// Google Ads: uploaded monthly report files (stored base64 in the DB).
+model AdReport {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  month     String   @default("")
+  year      String   @default("")
+  filename  String   @default("")
+  mime      String   @default("application/pdf")
+  data      String   @default("") // base64-encoded file contents
+  createdAt DateTime @default(now())
 }
 
 model Contact {

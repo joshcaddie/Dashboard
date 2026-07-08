@@ -11,13 +11,16 @@ function initials(name: string): string {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
-const NAV: { id: View; label: string; icon: string; badge?: 'clients' | 'sales' | 'jobs' | 'progress' }[] = [
+type NavItem = { id: View; label: string; icon: string; badge?: 'clients' | 'sales' | 'jobs' | 'progress'; ws?: string[] };
+const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
   { id: 'clients', label: 'Clients', icon: 'users', badge: 'clients' },
   { id: 'sales', label: 'Sales', icon: 'trending-up', badge: 'sales' },
   { id: 'jobs', label: 'Jobs', icon: 'briefcase', badge: 'jobs' },
   { id: 'bymonth', label: 'Jobs by month', icon: 'calendar-days' },
   { id: 'progress', label: 'Jobs in progress', icon: 'loader-circle', badge: 'progress' },
+  // Google Ads management — Caddie-only.
+  { id: 'googleAds', label: 'Google Ads', icon: 'megaphone', ws: ['caddie', 'combined'] },
   { id: 'goals', label: 'Goals', icon: 'target' },
   { id: 'contacts', label: 'Client contacts', icon: 'contact-round' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
@@ -104,7 +107,7 @@ export function Sidebar() {
 
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: theme.sidebarMuted, padding: '6px 12px 8px' }}>Workspace</div>
 
-      {NAV.map((n) => {
+      {NAV.filter((n) => !n.ws || n.ws.includes(wsId)).map((n) => {
         const active = store.view === n.id;
         const bv = badgeVal(n.badge);
         const showSub = n.id === 'sales' && salesActive;

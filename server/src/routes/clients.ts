@@ -72,6 +72,9 @@ router.patch('/:id', async (req, res) => {
   for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted', 'phone', 'email', 'websiteHost', 'domainHost', 'in7777']) {
     if (k in b) data[k] = b[k];
   }
+  for (const k of ['adSpend', 'mgmtFee']) {
+    if (k in b) data[k] = Math.round(Number(b[k]) || 0);
+  }
   // Jobs link to a client by name — keep them attached if the name changes.
   if ('name' in data) {
     const existing = await prisma.client.findUnique({ where: { id } });

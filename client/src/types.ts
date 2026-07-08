@@ -26,12 +26,31 @@ export interface Client {
   domainHost: string;
   in7777: string;
   hasP7: boolean;
+  adSpend: number;
+  mgmtFee: number;
   lastContacted: string | null;
   auditUrl: string; // Caddie Optimise shareable SEO report (set via webhook)
   auditPdf: string;
   auditScore: number | null;
   auditAt: string;
   contacts: Contact[];
+}
+
+export interface AdNote {
+  id: number;
+  clientId: number;
+  date: string;
+  text: string;
+}
+
+export interface AdReport {
+  id: number;
+  clientId: number;
+  month: string;
+  year: string;
+  filename: string;
+  mime: string;
+  createdAt: string;
 }
 
 export interface Job {

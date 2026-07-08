@@ -17,13 +17,15 @@ import users from './routes/users.js';
 import importData from './routes/import.js';
 import gmail from './routes/gmail.js';
 import integrations from './routes/integrations.js';
+import ads from './routes/ads.js';
 import { attachUser, requireAuth, ensureSuperAdmin } from './auth.js';
 
 const app = express();
 // Behind Render's TLS-terminating proxy — needed for req.secure / secure cookies.
 app.set('trust proxy', 1);
 app.use(cors());
-app.use(express.json({ limit: '2mb' }));
+// 25mb accommodates base64-encoded Google Ads report uploads.
+app.use(express.json({ limit: '25mb' }));
 app.use(cookieParser());
 app.use(attachUser);
 
@@ -45,6 +47,7 @@ app.use('/api/jobs', requireAuth, jobs);
 app.use('/api/sales', requireAuth, sales);
 app.use('/api/tasks', requireAuth, tasks);
 app.use('/api/ai', requireAuth, ai);
+app.use('/api/ads', requireAuth, ads);
 app.use('/api/send-email', requireAuth, sendEmail);
 app.use('/api', requireAuth, misc);
 

@@ -7,8 +7,8 @@ import { nowStamp } from './lib';
 
 export type View =
   | 'dashboard' | 'clients' | 'sales' | 'jobs' | 'bymonth' | 'progress' | 'goals'
-  | 'contacts' | 'settings' | 'salestasks' | 'emailtemplates'
-  | 'clientDetail' | 'jobDetail' | 'clientEmails';
+  | 'contacts' | 'settings' | 'salestasks' | 'emailtemplates' | 'googleAds'
+  | 'clientDetail' | 'jobDetail' | 'clientEmails' | 'adsDetail';
 
 interface Store {
   ready: boolean;
@@ -45,6 +45,7 @@ interface Store {
   clientEmailFilter: string;
   setClientEmailFilter: (f: string) => void;
   openClient: (id: number) => void;
+  openAdsClient: (id: number) => void;
   openJob: (id: number) => void;
   openClientEmails: (id: number) => void;
   openSaleEmails: (id: number) => void;
@@ -123,9 +124,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [jobSearch, setJobSearch] = useState('');
   const onGlobalSearch = (v: string) => { setClientSearch(v); setJobSearch(v); };
 
-  const DETAIL_VIEWS: View[] = ['clientDetail', 'jobDetail', 'clientEmails'];
+  const DETAIL_VIEWS: View[] = ['clientDetail', 'jobDetail', 'clientEmails', 'adsDetail'];
   const rememberBack = () => { if (!DETAIL_VIEWS.includes(view)) setBackView(view); };
   const openClient = (id: number) => { rememberBack(); setSelectedClientId(id); setView('clientDetail'); };
+  const openAdsClient = (id: number) => { rememberBack(); setSelectedClientId(id); setView('adsDetail'); };
   const openJob = (id: number) => { rememberBack(); setSelectedJobId(id); setView('jobDetail'); };
   const openClientEmails = (id: number) => {
     rememberBack(); setSelectedClientId(id);
@@ -312,7 +314,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     clientSearch, jobSearch, setClientSearch, setJobSearch, onGlobalSearch,
     selectedClientId, selectedJobId, setSelectedClientId, setSelectedJobId,
     emailArchiveKind, emailArchiveSaleId, clientEmailFilter, setClientEmailFilter,
-    openClient, openJob, openClientEmails, openSaleEmails, goBack,
+    openClient, openAdsClient, openJob, openClientEmails, openSaleEmails, goBack,
     writeWs,
     addClient, patchClient, markDomainPass, deleteClient, addContact, patchContact, removeContact,
     addJob, deleteJob, patchJob,

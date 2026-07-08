@@ -15,6 +15,8 @@ import { EmailTemplatesView } from './views/EmailTemplatesView';
 import { ClientDetailView } from './views/ClientDetailView';
 import { JobDetailView } from './views/JobDetailView';
 import { ClientEmailsView } from './views/ClientEmailsView';
+import { GoogleAdsView } from './views/GoogleAdsView';
+import { AdsClientDetailView } from './views/AdsClientDetailView';
 
 const TITLES: Record<string, [string, string]> = {
   dashboard: ['Dashboard', 'Agency performance at a glance'],
@@ -28,6 +30,7 @@ const TITLES: Record<string, [string, string]> = {
   goals: ['Goals', 'Set your annual targets'],
   settings: ['Settings', 'Manage sales channels & referral partners'],
   contacts: ['Client contacts', 'Key people across your accounts'],
+  googleAds: ['Google Ads', 'Manage clients with active Google Ads'],
   clientDetail: ['Client', 'Client detail'],
   jobDetail: ['Job', 'Job detail'],
   clientEmails: ['Emails', 'Gmail conversation history'],
@@ -44,6 +47,9 @@ export function App() {
   } else if (view === 'jobDetail') {
     const j = store.jobs.find((x) => x.id === store.selectedJobId);
     if (j) { title = j.client; subtitle = `${j.jobType} · Job detail`; }
+  } else if (view === 'adsDetail') {
+    const c = store.clients.find((x) => x.id === store.selectedClientId);
+    if (c) { title = c.name; subtitle = 'Google Ads management'; }
   } else if (view === 'clientEmails') {
     if (store.emailArchiveKind === 'sale') {
       const s = store.sales.find((x) => x.id === store.emailArchiveSaleId);
@@ -69,6 +75,8 @@ export function App() {
           {view === 'salestasks' && <SalesTasksView />}
           {view === 'goals' && <GoalsView />}
           {view === 'contacts' && <ContactsView />}
+          {view === 'googleAds' && <GoogleAdsView />}
+          {view === 'adsDetail' && <AdsClientDetailView />}
           {view === 'settings' && <SettingsView />}
           {view === 'emailtemplates' && <EmailTemplatesView />}
           {view === 'clientDetail' && <ClientDetailView />}
