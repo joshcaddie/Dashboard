@@ -31,6 +31,8 @@ model Client {
   auditPdf      String    @default("") // report PDF url
   auditScore    Int? // overall SEO score at last report
   auditAt       String    @default("") // display date of the last audit
+  proposalUrl   String    @default("") // Caddie Optimise client proposal PDF (set via webhook)
+  proposalAt    String    @default("") // display date of the proposal
   contacts      Contact[]
 }
 
@@ -96,6 +98,8 @@ model Sale {
   auditPdf  String     @default("") // report PDF url
   auditScore Int? // overall SEO score at last report
   auditAt   String     @default("") // display date of the last audit
+  proposalUrl String   @default("") // Caddie Optimise client proposal PDF (set via webhook)
+  proposalAt  String   @default("") // display date of the proposal
   notes     SaleNote[]
   tasks     SaleTask[]
 }

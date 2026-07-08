@@ -20,20 +20,31 @@ router.post('/caddie', async (req, res) => {
     return res.status(401).json({ error: 'unauthorized' });
   }
 
-  const { crmId, shareUrl, pdfUrl, overallScore, auditedAt } = req.body || {};
+  const { crmId, kind, shareUrl, pdfUrl, overallScore, auditedAt, proposalUrl, generatedAt } = req.body || {};
   const m = /^(client|sale):(\d+)$/.exec(String(crmId || ''));
-  if (!m || typeof shareUrl !== 'string' || !/^https?:\/\//.test(shareUrl)) {
-    return res.status(400).json({ error: 'bad_payload' });
-  }
+  if (!m) return res.status(400).json({ error: 'bad_payload' });
   const id = Number(m[2]);
-  const data = {
-    auditUrl: shareUrl.slice(0, 500),
-    auditPdf: typeof pdfUrl === 'string' && /^https?:\/\//.test(pdfUrl) ? pdfUrl.slice(0, 500) : '',
-    auditScore: Number.isFinite(Number(overallScore)) ? Math.round(Number(overallScore)) : null,
-    auditAt: auditedAt
-      ? new Date(auditedAt).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
-      : new Date().toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }),
-  };
+  const nzDate = (iso?: string) =>
+    (iso ? new Date(iso) : new Date()).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  let data: Record<string, unknown>;
+  if (kind === 'proposal') {
+    if (typeof proposalUrl !== 'string' || !/^https?:\/\//.test(proposalUrl)) {
+      return res.status(400).json({ error: 'bad_payload' });
+    }
+    data = { proposalUrl: proposalUrl.slice(0, 500), proposalAt: nzDate(generatedAt) };
+  } else {
+    // default: SEO report (kind 'report' or legacy payloads without kind)
+    if (typeof shareUrl !== 'string' || !/^https?:\/\//.test(shareUrl)) {
+      return res.status(400).json({ error: 'bad_payload' });
+    }
+    data = {
+      auditUrl: shareUrl.slice(0, 500),
+      auditPdf: typeof pdfUrl === 'string' && /^https?:\/\//.test(pdfUrl) ? pdfUrl.slice(0, 500) : '',
+      auditScore: Number.isFinite(Number(overallScore)) ? Math.round(Number(overallScore)) : null,
+      auditAt: nzDate(auditedAt),
+    };
+  }
 
   try {
     if (m[1] === 'client') await prisma.client.update({ where: { id }, data });

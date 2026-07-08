@@ -33,6 +33,8 @@ export interface Client {
   auditPdf: string;
   auditScore: number | null;
   auditAt: string;
+  proposalUrl: string; // Caddie Optimise client proposal PDF (set via webhook)
+  proposalAt: string;
   contacts: Contact[];
 }
 
@@ -97,6 +99,8 @@ export interface Sale {
   auditPdf: string;
   auditScore: number | null;
   auditAt: string;
+  proposalUrl: string; // Caddie Optimise client proposal PDF (set via webhook)
+  proposalAt: string;
   notes: SaleNote[];
   tasks: SaleTask[];
 }

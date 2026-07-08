@@ -51,6 +51,7 @@ export function SalePanel({ saleId, onClose }: { saleId: number; onClose: () => 
                 {sale.auditScore != null && <span style={{ padding: '2px 10px', borderRadius: 999, background: '#DCFCE7', color: '#15803D', fontSize: 12, fontWeight: 700 }}>{sale.auditScore}/100</span>}
                 {sale.auditPdf && <a href={sale.auditPdf} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: '#6B7C8C' }}>PDF</a>}
                 {sale.auditAt && <span style={{ fontSize: 12, color: '#8695A2' }}>audited {sale.auditAt}</span>}
+                {sale.proposalUrl && <a href={sale.proposalUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 700, color: accent }}>📝 Proposal{sale.proposalAt ? ` (${sale.proposalAt})` : ''}</a>}
               </>
             ) : (
               <span style={{ fontSize: 12.5, color: '#8695A2' }}>No SEO report yet — the link appears here once a report is generated.</span>

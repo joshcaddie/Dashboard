@@ -192,6 +192,12 @@ export function ClientDetailView() {
               ) : (
                 <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 6 }}>No SEO report yet — the link appears here automatically once a report is generated.</div>
               )}
+              {dcl.proposalUrl && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 7 }}>
+                  <a href={dcl.proposalUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, fontWeight: 700, color: accent }}>📝 Client proposal (PDF)</a>
+                  {dcl.proposalAt && <span style={{ fontSize: 12, color: '#8695A2' }}>generated {dcl.proposalAt}</span>}
+                </div>
+              )}
               <a
                 href={caddieAuditLink('client', dcl.id, dcl.name, dcl.website)} target="_blank" rel="noopener noreferrer"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 9, padding: '7px 12px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: accent, textDecoration: 'none' }}
