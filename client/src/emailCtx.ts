@@ -1,9 +1,7 @@
 import type { Client, Sale } from './types';
-import { deriveEmail } from './derive';
 import type { EmailContext, EmailRecipient } from './modals/ModalProvider';
 
 export function saleEmailContext(sale: Sale): EmailContext {
-  const em = sale.email || deriveEmail(sale.principal, '') || '—';
   const recipients: EmailRecipient[] = [
     { name: sale.principal && sale.principal !== '—' ? sale.principal : sale.name, email: sale.email || '—' },
   ];
@@ -26,14 +24,13 @@ export function saleEmailContext(sale: Sale): EmailContext {
 
 export function clientEmailContext(c: Client): EmailContext {
   const recipients: EmailRecipient[] = [];
-  // The record's real email field always wins; the derived first-name@domain
-  // guess is only a last resort when nothing is on file.
+  // Only real, on-file addresses — never derive/guess one. With nothing on
+  // file the modal shows '—' and sending is disabled.
   const direct = (c.email || '').trim();
-  const primaryEmail = direct || deriveEmail(c.contact, c.website);
   const primaryName = c.contact && c.contact !== '—' ? c.contact : c.name;
-  if (primaryEmail && primaryEmail !== '—') recipients.push({ name: primaryName, email: primaryEmail });
+  if (direct) recipients.push({ name: primaryName, email: direct });
   (c.contacts || []).forEach((ct) => {
-    if (ct.email && ct.email !== '—' && ct.email !== primaryEmail) recipients.push({ name: ct.name, email: ct.email });
+    if (ct.email && ct.email !== '—' && ct.email !== direct) recipients.push({ name: ct.name, email: ct.email });
   });
   if (recipients.length === 0) recipients.push({ name: c.name, email: '—' });
   return {

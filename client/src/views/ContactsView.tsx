@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { useWs, deriveEmail } from '../derive';
+import { useWs } from '../derive';
 import { useModals } from '../modals/ModalProvider';
 import { clientEmailContext } from '../emailCtx';
 import { Icon } from '../components/Icon';
@@ -31,7 +31,8 @@ export function ContactsView() {
 
   let allContacts: Row[] = [];
   wsClients.forEach((c) => {
-    const primaryEmail = deriveEmail(c.contact, c.website);
+    // Only the real on-file email — never a derived guess.
+    const primaryEmail = (c.email || '').trim() || '—';
     const last = c.lastContacted || 'Apr 16, 2026';
     const onOpen = () => store.openClient(c.id);
     const onEmail = () => modals.openEmail(clientEmailContext(c));

@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useStore } from '../store';
-import { useWs, deriveEmail } from '../derive';
+import { useWs } from '../derive';
 import { useAuth } from '../auth';
 import { api } from '../api';
 import { useModals } from '../modals/ModalProvider';
@@ -160,7 +160,6 @@ export function ClientDetailView() {
   const totalDev = cj.reduce((a, b) => a + b.dev, 0);
   const totalHost = cj.reduce((a, b) => a + b.host, 0);
   const av = avatarColors(dcl.name);
-  const derivedEmail = deriveEmail(dcl.contact, dcl.website);
   const lastContacted = dcl.lastContacted || '—';
 
   return (
@@ -206,7 +205,7 @@ export function ClientDetailView() {
             <div><div style={label}>Main contact</div><div style={{ marginTop: 5 }}><TextField value={dcl.contact === '—' ? '' : dcl.contact} onSave={(v) => set({ contact: v || '—' })} accent={accent} placeholder="Name" /></div></div>
             <div><div style={label}>Phone</div><div style={{ marginTop: 5 }}><TextField value={dcl.phone} onSave={(v) => set({ phone: v })} accent={accent} placeholder="—" /></div></div>
             <div><div style={label}>Website</div><div style={{ marginTop: 5 }}><TextField value={dcl.website} onSave={(v) => set({ website: v })} accent={accent} placeholder="domain.school.nz" /></div></div>
-            <div><div style={label}>Email</div><div style={{ marginTop: 5 }}><TextField value={dcl.email} onSave={(v) => set({ email: v })} accent={accent} placeholder={derivedEmail !== '—' ? derivedEmail : 'name@domain'} /></div></div>
+            <div><div style={label}>Email</div><div style={{ marginTop: 5 }}><TextField value={dcl.email} onSave={(v) => set({ email: v })} accent={accent} placeholder="name@domain" /></div></div>
             <div style={{ gridColumn: '1 / -1' }}><div style={label}>Notes</div><div style={{ marginTop: 5 }}><AreaField value={dcl.notes} onSave={(v) => set({ notes: v })} accent={accent} placeholder="Add a note…" /></div></div>
             <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #EEF2F5', paddingTop: 12 }}>
               <div style={label}>SEO &amp; proposals (Caddie Optimise)</div>

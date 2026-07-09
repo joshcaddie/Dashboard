@@ -72,6 +72,9 @@ export function EmailModal({ ctx, onClose }: { ctx: EmailContext; onClose: () =>
   const focus = (e: any) => { e.target.style.borderColor = accent; e.target.style.boxShadow = `0 0 0 3px ${soft}`; };
   const blur = (e: any) => { e.target.style.borderColor = '#DDE4EA'; e.target.style.boxShadow = 'none'; };
 
+  // No real address on file → the email is unsendable (we never guess one).
+  const noAddress = !emailTo.trim() || emailTo.trim() === '—' || !emailTo.includes('@');
+
   return (
     <Modal
       title="Send email"
@@ -81,8 +84,9 @@ export function EmailModal({ ctx, onClose }: { ctx: EmailContext; onClose: () =>
       footer={
         <>
           {sendError && <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#C22F35', textAlign: 'left' }}>{sendError}</span>}
+          {!sendError && noAddress && <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#B45309', textAlign: 'left' }}>No email address on file — add one to the record first.</span>}
           <button onClick={onClose} style={{ padding: '9px 16px', border: '1px solid #DDE4EA', borderRadius: 8, background: '#fff', fontSize: 13.5, fontWeight: 600, color: '#4B5D6C', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={send} disabled={sending} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 17px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.7 : 1, boxShadow: '0 1px 2px rgba(15,30,44,.14)' }}><Icon name="send" size={16} />{sending ? 'Sending…' : 'Send email'}</button>
+          <button onClick={send} disabled={sending || noAddress} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 17px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: sending || noAddress ? 'default' : 'pointer', opacity: sending || noAddress ? 0.5 : 1, boxShadow: '0 1px 2px rgba(15,30,44,.14)' }}><Icon name="send" size={16} />{sending ? 'Sending…' : 'Send email'}</button>
         </>
       }
     >
