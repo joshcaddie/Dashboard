@@ -126,6 +126,7 @@ export interface SentEmail {
   body: string;
   day: string;
   time: string;
+  tag?: string; // e.g. 'proposal'
 }
 
 export interface KpiDef {

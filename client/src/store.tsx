@@ -77,7 +77,7 @@ interface Store {
   addPartner: (name: string) => Promise<void>;
   deletePartner: (id: number) => Promise<void>;
   setTarget: (key: string, value: number) => Promise<void>;
-  sendEmail: (opts: { kind: 'client' | 'sale'; refId: number; to: string; subject: string; body: string }) => Promise<void>;
+  sendEmail: (opts: { kind: 'client' | 'sale'; refId: number; to: string; subject: string; body: string; tag?: string }) => Promise<void>;
 }
 
 // Persisted navigation state (survives page refreshes).
@@ -298,7 +298,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // ---- email ----
   // Actually sends via SMTP2GO server-side, then records into the archive +
   // updates last-contacted / logs a note. Throws (with a message) if the send fails.
-  const sendEmail = async (opts: { kind: 'client' | 'sale'; refId: number; to: string; subject: string; body: string }) => {
+  const sendEmail = async (opts: { kind: 'client' | 'sale'; refId: number; to: string; subject: string; body: string; tag?: string }) => {
     const res = await api.post('/send-email', opts);
     if (opts.kind === 'client' && res?.lastContacted) {
       setClients((cs) => cs.map((c) => (c.id === opts.refId ? { ...c, lastContacted: res.lastContacted } : c)));

@@ -7,6 +7,7 @@ import { useModals } from '../modals/ModalProvider';
 import { Icon } from '../components/Icon';
 import { money, initials, avatarColors, clientTypeStyle, typeStyle, statusStyle, BUSINESS_TYPE_OPTIONS, caddieAuditLink } from '../lib';
 import { clientEmailContext } from '../emailCtx';
+import type { SentEmail } from '../types';
 
 const STATUS_OPTS = ['Client', 'Lead', 'Trial'];
 
@@ -125,7 +126,16 @@ export function ClientDetailView() {
   // Keep the editable name field local so a rename doesn't fight the input.
   const [name, setName] = useState(dcl?.name ?? '');
   const [draftingEmail, setDraftingEmail] = useState(false);
+  const [proposalEmails, setProposalEmails] = useState<SentEmail[]>([]);
   useEffect(() => { setName(dcl?.name ?? ''); }, [dcl?.id, dcl?.name]);
+  // Proposal outreach history for this record.
+  useEffect(() => {
+    setProposalEmails([]);
+    if (!dcl?.id) return;
+    api.get(`/sent-emails?kind=client&refId=${dcl.id}`)
+      .then((rows: SentEmail[]) => setProposalEmails((rows || []).filter((e) => e.tag === 'proposal')))
+      .catch(() => {});
+  }, [dcl?.id]);
   if (!dcl) return null;
 
   // Draft the proposal outreach email (AI, grounded in the report) and open it
@@ -136,7 +146,7 @@ export function ClientDetailView() {
     setDraftingEmail(true);
     try {
       const out = await api.post('/ai/proposal-email', { kind: 'client', refId: dcl.id, videoUrl: v.trim() });
-      modals.openEmail({ ...clientEmailContext(dcl), prefill: { subject: out.subject || '', body: out.body || '' } });
+      modals.openEmail({ ...clientEmailContext(dcl), prefill: { subject: out.subject || '', body: out.body || '', tag: 'proposal' } });
     } catch (e: any) {
       alert(e?.message || 'Could not draft the email.');
     } finally {
@@ -199,32 +209,59 @@ export function ClientDetailView() {
             <div><div style={label}>Email</div><div style={{ marginTop: 5 }}><TextField value={dcl.email} onSave={(v) => set({ email: v })} accent={accent} placeholder={derivedEmail !== '—' ? derivedEmail : 'name@domain'} /></div></div>
             <div style={{ gridColumn: '1 / -1' }}><div style={label}>Notes</div><div style={{ marginTop: 5 }}><AreaField value={dcl.notes} onSave={(v) => set({ notes: v })} accent={accent} placeholder="Add a note…" /></div></div>
             <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #EEF2F5', paddingTop: 12 }}>
-              <div style={label}>SEO audit (Caddie Optimise)</div>
-              {dcl.auditUrl ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 7 }}>
-                  <a href={dcl.auditUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, fontWeight: 700, color: accent }}>📊 View SEO report</a>
-                  {dcl.auditScore != null && <span style={{ padding: '2px 10px', borderRadius: 999, background: '#DCFCE7', color: '#15803D', fontSize: 12, fontWeight: 700 }}>{dcl.auditScore}/100</span>}
-                  {dcl.auditPdf && <a href={dcl.auditPdf} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: '#6B7C8C' }}>PDF</a>}
-                  {dcl.auditAt && <span style={{ fontSize: 12, color: '#8695A2' }}>audited {dcl.auditAt}</span>}
-                </div>
-              ) : (
-                <div style={{ fontSize: 12.5, color: '#8695A2', marginTop: 6 }}>No SEO report yet — the link appears here automatically once a report is generated.</div>
-              )}
-              {dcl.proposalUrl && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 7 }}>
-                  <a href={dcl.proposalUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, fontWeight: 700, color: accent }}>📝 Client proposal (PDF)</a>
-                  {dcl.proposalAt && <span style={{ fontSize: 12, color: '#8695A2' }}>generated {dcl.proposalAt}</span>}
+              <div style={label}>SEO &amp; proposals (Caddie Optimise)</div>
+
+              {/* Audit report */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8, padding: '9px 12px', border: '1px solid #EEF2F5', borderRadius: 8, background: '#FAFCFD' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#93A1AD', width: 88, flexShrink: 0 }}>Audit</span>
+                {dcl.auditUrl ? (
+                  <>
+                    <a href={dcl.auditUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, fontWeight: 700, color: accent }}>📊 View SEO report</a>
+                    {dcl.auditScore != null && <span style={{ padding: '2px 10px', borderRadius: 999, background: '#DCFCE7', color: '#15803D', fontSize: 12, fontWeight: 700 }}>{dcl.auditScore}/100</span>}
+                    {dcl.auditPdf && <a href={dcl.auditPdf} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: '#6B7C8C' }}>PDF</a>}
+                    {dcl.auditAt && <span style={{ fontSize: 12, color: '#8695A2' }}>audited {dcl.auditAt}</span>}
+                  </>
+                ) : (
+                  <span style={{ fontSize: 12.5, color: '#8695A2' }}>Not run yet</span>
+                )}
+                <a
+                  href={caddieAuditLink('client', dcl.id, dcl.name, dcl.website)} target="_blank" rel="noopener noreferrer"
+                  style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, color: accent, textDecoration: 'none', flexShrink: 0 }}
+                >📊 {dcl.auditUrl ? 'Re-run audit' : 'Run audit report'}</a>
+              </div>
+
+              {/* Proposal */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 6, padding: '9px 12px', border: '1px solid #EEF2F5', borderRadius: 8, background: '#FAFCFD' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#93A1AD', width: 88, flexShrink: 0 }}>Proposal</span>
+                {dcl.proposalUrl ? (
+                  <>
+                    <a href={dcl.proposalUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, fontWeight: 700, color: accent }}>📝 View proposal (PDF)</a>
+                    {dcl.proposalAt && <span style={{ fontSize: 12, color: '#8695A2' }}>generated {dcl.proposalAt}</span>}
+                  </>
+                ) : (
+                  <span style={{ fontSize: 12.5, color: '#8695A2' }}>None yet — generate one from the audit page in Caddie Optimise</span>
+                )}
+                {dcl.proposalUrl && (
                   <button
                     onClick={emailProposal} disabled={draftingEmail}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, color: accent, cursor: draftingEmail ? 'default' : 'pointer', opacity: draftingEmail ? 0.6 : 1 }}
+                    style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 12, fontWeight: 600, cursor: draftingEmail ? 'default' : 'pointer', opacity: draftingEmail ? 0.6 : 1, flexShrink: 0 }}
                     title="AI-draft the outreach email (grounded in the report) and review before sending"
                   >✉️ {draftingEmail ? 'Drafting…' : 'Email proposal'}</button>
+                )}
+              </div>
+
+              {/* Proposal outreach history */}
+              {proposalEmails.length > 0 && (
+                <div style={{ marginTop: 6, padding: '9px 12px', border: '1px solid #EEF2F5', borderRadius: 8, background: '#FAFCFD' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#93A1AD', marginBottom: 6 }}>Proposal emails sent</div>
+                  {proposalEmails.slice(0, 5).map((e) => (
+                    <div key={e.id} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12.5, color: '#4B5D6C', padding: '2px 0' }}>
+                      <span style={{ color: '#8695A2', flexShrink: 0 }}>✉️ {e.day} · {e.time}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.subject}</span>
+                    </div>
+                  ))}
                 </div>
               )}
-              <a
-                href={caddieAuditLink('client', dcl.id, dcl.name, dcl.website)} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 9, padding: '7px 12px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: accent, textDecoration: 'none' }}
-              >📊 {dcl.auditUrl ? 'Re-run / update audit' : 'Run audit report'}</a>
             </div>
           </div>
         </div>

@@ -61,7 +61,7 @@ export function EmailModal({ ctx, onClose }: { ctx: EmailContext; onClose: () =>
     setSending(true);
     setSendError('');
     try {
-      await store.sendEmail({ kind: ctx.kind, refId: ctx.refId, to: emailTo, subject, body });
+      await store.sendEmail({ kind: ctx.kind, refId: ctx.refId, to: emailTo, subject, body, tag: ctx.prefill?.tag });
       onClose();
     } catch (e: any) {
       setSendError(e?.message || 'Could not send email.');

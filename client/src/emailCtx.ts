@@ -26,10 +26,14 @@ export function saleEmailContext(sale: Sale): EmailContext {
 
 export function clientEmailContext(c: Client): EmailContext {
   const recipients: EmailRecipient[] = [];
-  const primaryEmail = deriveEmail(c.contact, c.website);
-  if (c.contact && c.contact !== '—') recipients.push({ name: c.contact, email: primaryEmail || '—' });
+  // The record's real email field always wins; the derived first-name@domain
+  // guess is only a last resort when nothing is on file.
+  const direct = (c.email || '').trim();
+  const primaryEmail = direct || deriveEmail(c.contact, c.website);
+  const primaryName = c.contact && c.contact !== '—' ? c.contact : c.name;
+  if (primaryEmail && primaryEmail !== '—') recipients.push({ name: primaryName, email: primaryEmail });
   (c.contacts || []).forEach((ct) => {
-    if (ct.email && ct.email !== '—') recipients.push({ name: ct.name, email: ct.email });
+    if (ct.email && ct.email !== '—' && ct.email !== primaryEmail) recipients.push({ name: ct.name, email: ct.email });
   });
   if (recipients.length === 0) recipients.push({ name: c.name, email: '—' });
   return {

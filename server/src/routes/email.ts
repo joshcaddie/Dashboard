@@ -16,6 +16,7 @@ router.post('/', async (req, res, next) => {
     const to = String(b.to || '').trim();
     const subject = (String(b.subject || '').trim()) || '(no subject)';
     const body = String(b.body || '');
+    const tag = String(b.tag || '').slice(0, 40);
 
     if (!to || to === '—') return res.status(400).json({ error: 'No email address for this recipient.' });
     if (!subject.trim() && !body.trim()) return res.status(400).json({ error: 'Email is empty.' });
@@ -49,7 +50,7 @@ router.post('/', async (req, res, next) => {
     const d = new Date();
     const day = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    await prisma.sentEmail.create({ data: { kind, refId, subject, body, day, time } });
+    await prisma.sentEmail.create({ data: { kind, refId, subject, body, day, time, tag } });
 
     if (kind === 'client') {
       const today = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

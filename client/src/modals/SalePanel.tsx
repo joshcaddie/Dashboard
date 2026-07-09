@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { SentEmail } from '../types';
 import { useStore } from '../store';
 import { useWs } from '../derive';
 import { Modal } from '../components/Modal';
@@ -18,6 +19,13 @@ export function SalePanel({ saleId, onClose }: { saleId: number; onClose: () => 
   const [taskText, setTaskText] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const [draftingEmail, setDraftingEmail] = useState(false);
+  const [proposalEmails, setProposalEmails] = useState<SentEmail[]>([]);
+  useEffect(() => {
+    setProposalEmails([]);
+    api.get(`/sent-emails?kind=sale&refId=${saleId}`)
+      .then((rows: SentEmail[]) => setProposalEmails((rows || []).filter((e) => e.tag === 'proposal')))
+      .catch(() => {});
+  }, [saleId]);
 
   if (!sale) return null;
 
@@ -27,7 +35,7 @@ export function SalePanel({ saleId, onClose }: { saleId: number; onClose: () => 
     setDraftingEmail(true);
     try {
       const out = await api.post('/ai/proposal-email', { kind: 'sale', refId: sale.id, videoUrl: v.trim() });
-      modals.openEmail({ ...saleEmailContext(sale), prefill: { subject: out.subject || '', body: out.body || '' } });
+      modals.openEmail({ ...saleEmailContext(sale), prefill: { subject: out.subject || '', body: out.body || '', tag: 'proposal' } });
     } catch (e: any) {
       alert(e?.message || 'Could not draft the email.');
     } finally {
@@ -87,6 +95,17 @@ export function SalePanel({ saleId, onClose }: { saleId: number; onClose: () => 
               style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', border: 'none', borderRadius: 8, background: accent, color: '#fff', fontSize: 12.5, fontWeight: 600, textDecoration: 'none', flexShrink: 0 }}
             >📊 {sale.auditUrl ? 'Re-run audit' : 'Run audit report'}</a>
           </div>
+          {proposalEmails.length > 0 && (
+            <div style={{ marginTop: 8, padding: '10px 14px', border: '1px solid #EEF2F5', borderRadius: 8, background: '#FAFCFD' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#93A1AD', marginBottom: 5 }}>Proposal emails sent</div>
+              {proposalEmails.slice(0, 5).map((e) => (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12.5, color: '#4B5D6C', padding: '2px 0' }}>
+                  <span style={{ color: '#8695A2', flexShrink: 0 }}>✉️ {e.day} · {e.time}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.subject}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         {/* notes */}
         <div>

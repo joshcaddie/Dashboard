@@ -175,5 +175,6 @@ model SentEmail {
   body    String
   day     String
   time    String
+  tag     String   @default("") // e.g. 'proposal' — lets record pages show typed history
   sentAt  DateTime @default(now())
 }
