@@ -65,6 +65,7 @@ interface Store {
   patchJob: (id: number, patch: Partial<Job>) => Promise<void>;
   addLead: (form: any) => Promise<void>;
   setSaleStage: (id: number, stage: string) => Promise<void>;
+  deleteSale: (id: number) => Promise<void>;
   convertSale: (id: number, form: any) => Promise<void>;
   addSaleNote: (saleId: number, text: string) => Promise<void>;
   addSaleTask: (saleId: number, text: string, due: string) => Promise<void>;
@@ -230,6 +231,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSales((ss) => ss.map((s) => (s.id === id ? { ...s, stage } : s)));
     await api.patch('/sales/' + id, { stage });
   };
+  const deleteSale = async (id: number) => {
+    setSales((ss) => ss.filter((s) => s.id !== id));
+    await api.del('/sales/' + id);
+  };
   const convertSale = async (id: number, form: any) => {
     const { client, job, sale } = await api.post(`/sales/${id}/convert`, form);
     setClients((cs) => [{ ...client, contacts: client.contacts || [] }, ...cs]);
@@ -318,7 +323,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     writeWs,
     addClient, patchClient, markDomainPass, deleteClient, addContact, patchContact, removeContact,
     addJob, deleteJob, patchJob,
-    addLead, setSaleStage, convertSale,
+    addLead, setSaleStage, deleteSale, convertSale,
     addSaleNote, addSaleTask, toggleSaleTask, deleteSaleTask,
     saveTemplate, deleteTemplate,
     addChannel, deleteChannel, addPartner, deletePartner,

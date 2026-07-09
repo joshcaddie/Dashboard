@@ -52,6 +52,12 @@ router.patch('/:id', async (req, res) => {
   res.json(sale);
 });
 
+// Delete a lead (cascades its notes & tasks).
+router.delete('/:id', async (req, res) => {
+  await prisma.sale.delete({ where: { id: Number(req.params.id) } });
+  res.status(204).end();
+});
+
 // Notes
 router.post('/:id/notes', async (req, res) => {
   const saleId = Number(req.params.id);

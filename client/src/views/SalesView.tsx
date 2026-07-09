@@ -19,7 +19,7 @@ export function SalesView() {
 
   const showRoll = wsId !== 'caddie';
   const contactLabel = wsId === 'caddie' ? 'Contact' : 'Principal';
-  const cols = showRoll ? '2fr 1.1fr 1fr .55fr 1.1fr 1fr 1fr 1.7fr' : '2fr 1.1fr 1fr 1.1fr 1fr 1fr 1.7fr';
+  const cols = showRoll ? '2fr 1.1fr 1fr .55fr 1.1fr 1fr 1fr 1.9fr' : '2fr 1.1fr 1fr 1.1fr 1fr 1fr 1.9fr';
 
   let list = wsSales.filter((x) => tab === 'All' || x.category === tab);
   const q = search.trim().toLowerCase();
@@ -90,7 +90,8 @@ export function SalesView() {
                       {SALE_STAGES.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '34px 34px 34px 118px', gap: 8, alignItems: 'center', justifyContent: 'end' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '34px 34px 34px 34px 118px', gap: 8, alignItems: 'center', justifyContent: 'end' }}>
+                    <button title="Delete lead" onClick={() => { if (confirm(`Delete lead “${x.name}”? This can't be undone.`)) store.deleteSale(x.id); }} style={{ ...iconBtn, color: '#B6C1CB' }}><Icon name="trash-2" size={16} /></button>
                     <button title="Email history" onClick={() => store.openSaleEmails(x.id)} style={{ ...iconBtn, color: '#4B5D6C' }}><Icon name="list" size={16} /></button>
                     <button title="Send email" onClick={() => modals.openEmail(saleEmailContext(x))} style={{ ...iconBtn, color: accent }}><Icon name="mail" size={16} /></button>
                     <button title="Notes & tasks" onClick={() => modals.openSalePanel(x.id)} style={{ ...iconBtn, position: 'relative', color: '#4B5D6C' }}>
