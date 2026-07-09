@@ -129,9 +129,10 @@ router.get('/threads', requireAuth, async (req, res, next) => {
       const c = await prisma.client.findUnique({ where: { id: refId }, include: { contacts: true } });
       if (!c) return res.status(404).json({ error: 'Client not found.' });
       ws = c.ws;
+      // Every REAL address associated with the client: the record's own email
+      // field plus all extra contacts. Never a derived guess.
+      if (c.email) addresses.push(c.email);
       for (const ct of c.contacts) if (ct.email) addresses.push(ct.email);
-      const d = deriveEmail(c.contact, c.website);
-      if (d) addresses.push(d);
     } else {
       const s = await prisma.sale.findUnique({ where: { id: refId } });
       if (!s) return res.status(404).json({ error: 'Lead not found.' });

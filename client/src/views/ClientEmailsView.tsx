@@ -73,10 +73,10 @@ export function ClientEmailsView() {
   const arc =
     kind === 'sale'
       ? sale
-        ? { id: sale.id, name: sale.name, contact: sale.principal, website: '', region: sale.region }
+        ? { id: sale.id, name: sale.name, contact: sale.principal, website: '', region: sale.region, email: sale.email || '' }
         : null
       : client
-      ? { id: client.id, name: client.name, contact: client.contact, website: client.website, region: client.region }
+      ? { id: client.id, name: client.name, contact: client.contact, website: client.website, region: client.region, email: client.email || '' }
       : null;
 
   const arcId = arc ? arc.id : null;
@@ -102,9 +102,10 @@ export function ClientEmailsView() {
 
   if (!arc) return null;
 
-  const first = arc.contact && arc.contact !== '—' ? arc.contact.split(' ')[0] : 'Office';
-  const dom = (arc.website || '').replace(/^www\./, '') || 'school.nz';
-  const themEmail = (first.toLowerCase().replace(/[^a-z]/g, '') || 'office') + '@' + dom;
+  // Only real, on-file addresses — the record's email, else the first extra
+  // contact's. Never a derived guess.
+  const contactEmails = (client?.contacts || []).map((ct) => (ct.email || '').trim()).filter((e) => e && e !== '—');
+  const themEmail = (arc.email || '').trim() || contactEmails[0] || '—';
   const av = avatarColors(arc.name);
   const who = arc.contact && arc.contact !== '—' ? arc.contact : arc.name;
   const gmailConnected = !!gmail?.connected;
