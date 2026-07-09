@@ -16,6 +16,9 @@ export function SalesView() {
   const accent = theme.accent, soft = theme.soft;
   const [tab, setTab] = useState('All');
   const [search, setSearch] = useState('');
+  // Two-click delete confirmation (avoids native confirm dialogs, which some
+  // browsers suppress). First click arms the row; second click deletes.
+  const [confirmDel, setConfirmDel] = useState<number | null>(null);
 
   const showRoll = wsId !== 'caddie';
   const contactLabel = wsId === 'caddie' ? 'Contact' : 'Principal';
@@ -91,7 +94,12 @@ export function SalesView() {
                     </select>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '34px 34px 34px 34px 118px', gap: 8, alignItems: 'center', justifyContent: 'end' }}>
-                    <button title="Delete lead" onClick={() => { if (confirm(`Delete lead “${x.name}”? This can't be undone.`)) store.deleteSale(x.id); }} style={{ ...iconBtn, color: '#B6C1CB' }}><Icon name="trash-2" size={16} /></button>
+                    <button title={confirmDel === x.id ? 'Click again to confirm delete' : 'Delete lead'}
+                      onClick={() => { if (confirmDel === x.id) { store.deleteSale(x.id); setConfirmDel(null); } else { setConfirmDel(x.id); } }}
+                      onBlur={() => setConfirmDel((c) => (c === x.id ? null : c))}
+                      style={{ ...iconBtn, color: confirmDel === x.id ? '#fff' : '#B6C1CB', background: confirmDel === x.id ? '#C22F35' : '#fff', borderColor: confirmDel === x.id ? '#C22F35' : '#E1E8ED' }}>
+                      <Icon name={confirmDel === x.id ? 'check' : 'trash-2'} size={16} />
+                    </button>
                     <button title="Email history" onClick={() => store.openSaleEmails(x.id)} style={{ ...iconBtn, color: '#4B5D6C' }}><Icon name="list" size={16} /></button>
                     <button title="Send email" onClick={() => modals.openEmail(saleEmailContext(x))} style={{ ...iconBtn, color: accent }}><Icon name="mail" size={16} /></button>
                     <button title="Notes & tasks" onClick={() => modals.openSalePanel(x.id)} style={{ ...iconBtn, position: 'relative', color: '#4B5D6C' }}>
