@@ -78,20 +78,24 @@ export function DashboardView() {
   const [hoverBar, setHoverBar] = useState<number | null>(null);
   // Referral partner whose contributing jobs are shown in a breakdown modal.
   const [openPartner, setOpenPartner] = useState<string | null>(null);
-  // Clients skipped for this session — dropped from the prompt so the next
-  // overdue client takes their place.
-  const [skipped, setSkipped] = useState<Set<number>>(new Set());
-
   // Daily outreach prompt: clients not contacted in 60+ days (never-contacted
   // count as most overdue), oldest first, capped at 5.
+  // A skip is PERSISTENT (saved on the client) and stays in force until the
+  // client is contacted again — so the only ways off the list are email or skip.
   const now = Date.now();
   const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
   const lastMs = (s: string | null) => (s ? Date.parse(s) : NaN);
+  const isSkipped = (c: { reconnectSkippedAt: string; lastContacted: string | null }) => {
+    const sk = c.reconnectSkippedAt ? Date.parse(c.reconnectSkippedAt) : NaN;
+    if (isNaN(sk)) return false;
+    const t = lastMs(c.lastContacted);
+    return isNaN(t) || sk > t; // skip is stale once they've been contacted after it
+  };
   const toContact = wsClients
-    .filter((c) => { if (skipped.has(c.id)) return false; const t = lastMs(c.lastContacted); return isNaN(t) || now - t > SIXTY_DAYS; })
+    .filter((c) => { if (isSkipped(c)) return false; const t = lastMs(c.lastContacted); return isNaN(t) || now - t > SIXTY_DAYS; })
     .sort((a, b) => (isNaN(lastMs(a.lastContacted)) ? 0 : lastMs(a.lastContacted)) - (isNaN(lastMs(b.lastContacted)) ? 0 : lastMs(b.lastContacted)))
     .slice(0, 5);
-  const skip = (id: number) => setSkipped((s) => new Set(s).add(id));
+  const skip = (id: number) => { store.patchClient(id, { reconnectSkippedAt: new Date().toISOString() }).catch(() => {}); };
 
   // "Update from Gmail": refresh last-contacted from real correspondence (sent
   // + received), so clients we've actually been in touch with drop off the list.

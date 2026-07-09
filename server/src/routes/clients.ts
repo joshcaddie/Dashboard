@@ -69,7 +69,7 @@ router.patch('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const b = req.body ?? {};
   const data: Record<string, unknown> = {};
-  for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted', 'phone', 'email', 'websiteHost', 'domainHost', 'in7777']) {
+  for (const k of ['name', 'contact', 'type', 'region', 'roll', 'website', 'businessType', 'notes', 'lastContacted', 'reconnectSkippedAt', 'phone', 'email', 'websiteHost', 'domainHost', 'in7777']) {
     if (k in b) data[k] = b[k];
   }
   for (const k of ['adSpend', 'mgmtFee']) {

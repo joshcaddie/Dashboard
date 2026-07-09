@@ -27,6 +27,7 @@ model Client {
   adSpend       Int       @default(0) // Google Ads: monthly ad spend
   mgmtFee       Int       @default(0) // Google Ads: monthly management fee
   lastContacted String? // display string, e.g. "Jul 6, 2026"
+  reconnectSkippedAt String @default("") // ISO ts — skipped from the reconnect list; stale once contacted again
   auditUrl      String    @default("") // Caddie Optimise shareable SEO report (set via webhook)
   auditPdf      String    @default("") // report PDF url
   auditScore    Int? // overall SEO score at last report

@@ -29,6 +29,7 @@ export interface Client {
   adSpend: number;
   mgmtFee: number;
   lastContacted: string | null;
+  reconnectSkippedAt: string; // ISO ts — skipped from the reconnect list; stale once contacted again
   auditUrl: string; // Caddie Optimise shareable SEO report (set via webhook)
   auditPdf: string;
   auditScore: number | null;
