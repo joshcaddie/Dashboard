@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
+import { api } from '../api';
 import { useWs } from '../derive';
 import { useModals } from '../modals/ModalProvider';
 import { clientEmailContext } from '../emailCtx';
@@ -70,7 +71,7 @@ function KpiCard({ d, isMoney, hasTargets, target, theme }: { d: KpiDef; isMoney
 
 export function DashboardView() {
   const store = useStore();
-  const { theme, wsCfg, wsClients, wsJobs, wsRatio, wsTotal } = useWs();
+  const { theme, wsCfg, wsClients, wsJobs, wsRatio, wsTotal, wsId } = useWs();
   const { config, targets } = store;
   const modals = useModals();
   const accent = theme.accent, soft = theme.soft;
@@ -91,6 +92,42 @@ export function DashboardView() {
     .sort((a, b) => (isNaN(lastMs(a.lastContacted)) ? 0 : lastMs(a.lastContacted)) - (isNaN(lastMs(b.lastContacted)) ? 0 : lastMs(b.lastContacted)))
     .slice(0, 5);
   const skip = (id: number) => setSkipped((s) => new Set(s).add(id));
+
+  // "Update from Gmail": refresh last-contacted from real correspondence (sent
+  // + received), so clients we've actually been in touch with drop off the list.
+  const [gmailWs, setGmailWs] = useState<string[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
+  useEffect(() => {
+    let alive = true;
+    api.get('/gmail/status')
+      .then((rows) => { if (alive) setGmailWs((rows || []).filter((r: any) => r.connected).map((r: any) => r.ws)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const syncTargets = wsId === 'combined' ? gmailWs : gmailWs.filter((w) => w === wsId);
+  const syncFromGmail = async () => {
+    if (syncing || !syncTargets.length) return;
+    setSyncing(true); setSyncMsg('');
+    try {
+      let updated = 0, matched = 0;
+      for (const w of syncTargets) {
+        const r = await api.post('/gmail/sync-contacted', { ws: w });
+        updated += r.updated || 0; matched += r.matched || 0;
+      }
+      if (updated > 0) {
+        setSyncMsg(`Updated ${updated} client${updated === 1 ? '' : 's'} from Gmail. Reloading…`);
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        setSyncMsg(`No new correspondence found (${matched} clients matched).`);
+        setSyncing(false);
+      }
+    } catch (e: any) {
+      setSyncMsg(e?.message || 'Gmail sync failed.');
+      setSyncing(false);
+    }
+  };
+
   const ccCols = '2.2fr 1.3fr .9fr .55fr 1fr 118px';
   const ccIconBtn = { width: 32, height: 32, borderRadius: 8, border: '1px solid #EEF1F4', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } as const;
 
@@ -162,7 +199,17 @@ export function DashboardView() {
             <div style={{ fontSize: 15, fontWeight: 700, color: '#12222F' }}>Clients to reconnect</div>
             <div style={{ fontSize: 12.5, color: '#6B7C8C', marginTop: 3 }}>Not contacted in 60+ days · reach out to 5 today to grow existing accounts</div>
           </div>
-          <button onClick={() => store.goto('clients')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: '#3B4E60', cursor: 'pointer' }}>All clients<Icon name="arrow-right" size={15} /></button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {syncMsg && <span style={{ fontSize: 12, fontWeight: 600, color: '#2E7D6B' }}>{syncMsg}</span>}
+            {syncTargets.length > 0 && (
+              <button
+                onClick={syncFromGmail} disabled={syncing}
+                title="Check Gmail (sent + received) and refresh last-contacted — clients with recent correspondence drop off this list"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: '#3B4E60', cursor: syncing ? 'default' : 'pointer', opacity: syncing ? 0.7 : 1 }}
+              ><Icon name="refresh-cw" size={15} />{syncing ? 'Checking Gmail…' : 'Update from Gmail'}</button>
+            )}
+            <button onClick={() => store.goto('clients')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid #E1E8ED', borderRadius: 8, background: '#fff', fontSize: 12.5, fontWeight: 600, color: '#3B4E60', cursor: 'pointer' }}>All clients<Icon name="arrow-right" size={15} /></button>
+          </div>
         </div>
         {toContact.length === 0 ? (
           <div style={{ padding: '34px 24px 40px', textAlign: 'center', color: '#7A8894' }}>

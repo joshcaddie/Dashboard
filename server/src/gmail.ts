@@ -245,6 +245,36 @@ async function getMailboxEmail(ws: string): Promise<string> {
 }
 export function clearMailboxCache(ws: string) { mailboxCache.delete(ws); }
 
+// Scan recently RECEIVED mail and return the most-recent time (ms) we heard
+// from each sender — so a client emailing us counts as being in touch, not
+// just us emailing them. Window-bounded (newer_than) and capped.
+export async function listInboxSenders(ws: string, days = 180, cap = 1500): Promise<{ senders: Map<string, number>; scanned: number }> {
+  const senders = new Map<string, number>();
+  let pageToken: string | undefined;
+  let scanned = 0;
+  while (scanned < cap) {
+    const q = encodeURIComponent(`in:inbox newer_than:${days}d`);
+    const list = await gapi(ws, `messages?q=${q}&maxResults=500${pageToken ? `&pageToken=${pageToken}` : ''}`);
+    const ids: { id: string }[] = list.messages || [];
+    if (!ids.length) break;
+    for (let i = 0; i < ids.length; i += 25) {
+      const chunk = ids.slice(i, i + 25);
+      const metas = await Promise.all(chunk.map((m) =>
+        gapi(ws, `messages/${m.id}?format=metadata&metadataHeaders=From`).catch(() => null)));
+      for (const meta of metas) {
+        if (!meta) continue;
+        const dateMs = Number(meta.internalDate || 0);
+        const hs = meta.payload?.headers || [];
+        for (const a of extractEmails(header(hs, 'From'))) if (dateMs > (senders.get(a) || 0)) senders.set(a, dateMs);
+      }
+    }
+    scanned += ids.length;
+    pageToken = list.nextPageToken;
+    if (!pageToken) break;
+  }
+  return { senders, scanned };
+}
+
 // ---- send ----
 function encodeHeader(v: string): string {
   // RFC 2047 encoded-word for non-ASCII header values (e.g. subjects).

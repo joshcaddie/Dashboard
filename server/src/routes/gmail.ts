@@ -4,7 +4,7 @@ import { prisma } from '../db.js';
 import { requireAuth, requireRole, type SessionUser } from '../auth.js';
 import {
   gcfg, isConfigured, authUrl, exchangeCode, encryptToken,
-  isConnected, listForAddresses, getMessageFull, listSentRecipients,
+  isConnected, listForAddresses, getMessageFull, listSentRecipients, listInboxSenders,
   clearTokenCache, clearMailboxCache,
 } from '../gmail.js';
 
@@ -159,11 +159,19 @@ router.post('/sync-contacted', requireAuth, async (req, res, next) => {
     if (!WORKSPACES.includes(ws)) return res.status(400).json({ error: 'Unknown workspace.' });
     if (!(await isConnected(ws))) return res.status(400).json({ error: 'Gmail isn’t connected for this workspace.' });
 
-    const { recipients, scanned } = await listSentRecipients(ws);
-    // Also collapse to the most-recent send per recipient DOMAIN, so emailing
-    // anyone @school.nz counts as contacting that school.
+    // Correspondence in BOTH directions counts as being in touch: our sent
+    // mail (all-time, capped) plus anything clients emailed us recently.
+    const [{ recipients, scanned: scannedSent }, { senders, scanned: scannedInbox }] = await Promise.all([
+      listSentRecipients(ws),
+      listInboxSenders(ws),
+    ]);
+    const contactMs = new Map<string, number>(recipients);
+    for (const [email, ms] of senders) if (ms > (contactMs.get(email) || 0)) contactMs.set(email, ms);
+
+    // Also collapse to the most-recent contact per DOMAIN, so a message to or
+    // from anyone @school.nz counts as contact with that school.
     const domainMap = new Map<string, number>();
-    for (const [email, ms] of recipients) {
+    for (const [email, ms] of contactMs) {
       const dom = email.split('@')[1];
       if (dom && ms > (domainMap.get(dom) || 0)) domainMap.set(dom, ms);
     }
@@ -175,20 +183,27 @@ router.post('/sync-contacted', requireAuth, async (req, res, next) => {
     let updated = 0, matched = 0;
     for (const c of clients) {
       let max = 0;
-      // exact contact addresses
-      for (const ct of c.contacts) if (ct.email) { const t = recipients.get(ct.email.trim().toLowerCase()) || 0; if (t > max) max = t; }
+      // the record's own email + exact contact addresses
+      const own = (c.email || '').trim().toLowerCase();
+      if (own) { const t = contactMs.get(own) || 0; if (t > max) max = t; }
+      for (const ct of c.contacts) if (ct.email) { const t = contactMs.get(ct.email.trim().toLowerCase()) || 0; if (t > max) max = t; }
       const d = deriveEmail(c.contact, c.website);
-      if (d) { const t = recipients.get(d.toLowerCase()) || 0; if (t > max) max = t; }
+      if (d) { const t = contactMs.get(d.toLowerCase()) || 0; if (t > max) max = t; }
       // whole-domain match (anyone @ the school's website domain)
       const dom = cleanDomain(c.website);
       if (dom) { const t = domainMap.get(dom) || 0; if (t > max) max = t; }
       if (max > 0) {
         matched++;
         const disp = fmt(max);
-        if (c.lastContacted !== disp) { await prisma.client.update({ where: { id: c.id }, data: { lastContacted: disp } }); updated++; }
+        // Only ever move last-contacted FORWARD — a manual/newer date wins.
+        const cur = c.lastContacted ? Date.parse(c.lastContacted) : NaN;
+        if ((isNaN(cur) || max > cur) && c.lastContacted !== disp) {
+          await prisma.client.update({ where: { id: c.id }, data: { lastContacted: disp } });
+          updated++;
+        }
       }
     }
-    res.json({ ok: true, scanned, matched, updated });
+    res.json({ ok: true, scanned: scannedSent + scannedInbox, scannedSent, scannedInbox, matched, updated });
   } catch (e: any) {
     res.status(502).json({ error: e?.message || 'Gmail sync failed.' });
   }
